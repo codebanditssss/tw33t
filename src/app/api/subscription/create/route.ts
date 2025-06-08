@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies();
     
-    const supabase = createServerClient(
+    // Client for user authentication
+    const supabaseAuth = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
@@ -23,8 +25,14 @@ export async function POST(request: NextRequest) {
       }
     );
     
+    // Service role client for database operations (bypasses RLS)
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    
     // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
     
     if (authError || !user) {
       return NextResponse.json(
@@ -32,6 +40,8 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    console.log('🚀 Creating subscription for user:', user.id, user.email);
 
     const { planType } = await request.json();
 
@@ -44,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already has a pro subscription
-    const { data: existingSubscription } = await supabase
+    const { data: existingSubscription } = await supabaseAdmin
       .from('user_subscriptions')
       .select('*')
       .eq('user_id', user.id)
@@ -60,33 +70,39 @@ export async function POST(request: NextRequest) {
     }
 
     // Create Dodo Payments subscription
+    const subscriptionPayload = {
+      billing: {
+        city: 'Default City',
+        country: 'US',
+        state: 'Default State', 
+        street: 'Default Street',
+        zipcode: '12345'
+      },
+      customer: {
+        email: user.email,
+        name: user.user_metadata?.full_name || user.email,
+      },
+      product_id: process.env.DODO_PRO_PRODUCT_ID,
+      quantity: 1,
+      payment_link: true,
+      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing?success=true`,
+      metadata: {
+        user_id: user.id,
+        plan_type: 'pro'
+      }
+    };
+    
+    console.log('📦 Subscription payload:', subscriptionPayload);
+    console.log('🔗 Dodo API URL:', process.env.DODO_PAYMENTS_API_URL);
+    console.log('🔑 Has API key:', !!process.env.DODO_PAYMENTS_API_KEY);
+    
     const dodoResponse = await fetch(`${process.env.DODO_PAYMENTS_API_URL}/subscriptions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${process.env.DODO_PAYMENTS_API_KEY}`,
       },
-      body: JSON.stringify({
-        billing: {
-          city: 'Default City',
-          country: 'US',
-          state: 'Default State', 
-          street: 'Default Street',
-          zipcode: '12345'
-        },
-        customer: {
-          email: user.email,
-          name: user.user_metadata?.full_name || user.email,
-        },
-        product_id: process.env.DODO_PRO_PRODUCT_ID,
-        quantity: 1,
-        payment_link: true,
-        return_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing?success=true`,
-        metadata: {
-          user_id: user.id,
-          plan_type: 'pro'
-        }
-      }),
+      body: JSON.stringify(subscriptionPayload),
     });
 
     if (!dodoResponse.ok) {
@@ -99,19 +115,24 @@ export async function POST(request: NextRequest) {
     }
 
     const subscriptionData = await dodoResponse.json();
+    console.log('✅ Dodo response:', subscriptionData);
 
     // Store subscription info in our database
-    const { error: dbError } = await supabase
+    const subscriptionRecord = {
+      user_id: user.id,
+      plan_type: 'pro',
+      dodo_subscription_id: subscriptionData.subscription_id,
+      dodo_customer_id: subscriptionData.customer?.customer_id,
+      status: 'pending',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    
+    console.log('💾 Storing subscription record:', subscriptionRecord);
+    
+    const { error: dbError } = await supabaseAdmin
       .from('user_subscriptions')
-      .upsert({
-        user_id: user.id,
-        plan_type: 'pro',
-        dodo_subscription_id: subscriptionData.subscription_id,
-        dodo_customer_id: subscriptionData.customer.customer_id,
-        status: 'pending',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
+      .upsert(subscriptionRecord);
 
     if (dbError) {
       console.error('Database error:', dbError);

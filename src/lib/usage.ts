@@ -1,4 +1,10 @@
-import { supabase } from './supabase';
+import { createClient } from '@supabase/supabase-js';
+
+// Use service role key for usage operations to bypass RLS
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // Plan limits
 export const PLAN_LIMITS = {
@@ -14,7 +20,7 @@ export function getCurrentMonth(): string {
 
 // Get user's current plan
 export async function getUserPlan(userId: string) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('user_subscriptions')
     .select('plan_type, status')
     .eq('user_id', userId)
@@ -32,7 +38,7 @@ export async function getUserPlan(userId: string) {
 export async function getCurrentUsage(userId: string) {
   const monthYear = getCurrentMonth();
   
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('monthly_usage')
     .select('tweets_generated')
     .eq('user_id', userId)
@@ -71,7 +77,7 @@ export async function incrementUsage(userId: string): Promise<void> {
   const monthYear = getCurrentMonth();
   
   // Use upsert to either create new record or increment existing
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from('monthly_usage')
     .upsert({
       user_id: userId,
@@ -84,7 +90,7 @@ export async function incrementUsage(userId: string): Promise<void> {
 
   if (error) {
     // If upsert failed, try to increment existing record
-    const { data: currentData } = await supabase
+    const { data: currentData } = await supabaseAdmin
       .from('monthly_usage')
       .select('tweets_generated')
       .eq('user_id', userId)
@@ -93,7 +99,7 @@ export async function incrementUsage(userId: string): Promise<void> {
 
     const newCount = (currentData?.tweets_generated || 0) + 1;
     
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from('monthly_usage')
       .update({
         tweets_generated: newCount,

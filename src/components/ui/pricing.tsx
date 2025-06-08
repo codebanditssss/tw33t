@@ -27,11 +27,17 @@ function PricingSection() {
   // Handle success return from payment
   useEffect(() => {
     const success = searchParams.get('success');
+    const subscriptionId = searchParams.get('subscription_id');
+    
     if (success === 'true' && user && !hasShownSuccessToast) {
+      console.log('Payment success detected, subscription ID:', subscriptionId);
       toast.success('Payment successful! Your Pro subscription is now active.');
       setHasShownSuccessToast(true);
-      // Refresh usage to update the UI
-      refreshUsage();
+      
+      // Refresh usage to update the UI with a slight delay to allow webhook processing
+      setTimeout(() => {
+        refreshUsage();
+      }, 2000);
       
       // Clear the success parameter from URL to prevent re-triggering
       const url = new URL(window.location.href);
@@ -40,7 +46,7 @@ function PricingSection() {
       url.searchParams.delete('status');
       window.history.replaceState({}, '', url.toString());
     }
-  }, [searchParams, user?.id, refreshUsage, hasShownSuccessToast]); // Use user.id instead of user object
+  }, [searchParams, user?.id, refreshUsage, hasShownSuccessToast]);
 
   const handleSubscription = async (planName: string) => {
     if (planName === 'Free') {
@@ -63,17 +69,21 @@ function PricingSection() {
         });
 
         const data = await response.json();
+        console.log('Subscription creation response:', data);
 
         if (response.ok && data.payment_link) {
           toast.success('Redirecting to payment...');
-          // Redirect to Dodo Payments checkout
-          window.location.href = data.payment_link;
+          // Small delay to show the toast before redirect
+          setTimeout(() => {
+            window.location.href = data.payment_link;
+          }, 1000);
         } else {
+          console.error('Subscription creation failed:', data);
           toast.error(data.error || 'Failed to create subscription');
         }
       } catch (error) {
         console.error('Subscription error:', error);
-        toast.error('Failed to create subscription');
+        toast.error('Failed to create subscription. Please try again.');
       }
     }
     

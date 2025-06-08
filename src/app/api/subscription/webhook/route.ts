@@ -1,27 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase with service role key for webhook operations
-const supabase = createClient(
+// Initialize Supabase with service role key for webhook operations (bypasses RLS)
+const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 export async function POST(request: NextRequest) {
+  console.log('🔔 WEBHOOK RECEIVED!');
+  console.log('📋 Headers:', Object.fromEntries(request.headers.entries()));
+  
   try {
     // Verify webhook signature (basic implementation)
     const signature = request.headers.get('x-dodo-signature');
     const webhookSecret = process.env.DODO_WEBHOOK_SECRET;
     
+    console.log('🔐 Signature check:', { signature: !!signature, secret: !!webhookSecret });
+    
     if (!signature || !webhookSecret) {
-      console.error('Missing webhook signature or secret');
+      console.error('❌ Missing webhook signature or secret');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.text();
+    console.log('📝 Raw webhook body:', body);
+    
     const event = JSON.parse(body);
+    console.log('🎯 Parsed event:', { type: event.type, data: event.data });
 
-    console.log('Webhook received:', event.type, event.data?.subscription_id);
+    console.log('✅ Webhook received:', event.type, event.data?.subscription_id);
 
     // Handle different subscription events
     switch (event.type) {
@@ -76,7 +84,7 @@ async function handleSubscriptionActive(data: any) {
     }
 
     // Update subscription status to active
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('user_subscriptions')
       .update({
         status: 'active',
@@ -101,7 +109,7 @@ async function handleSubscriptionRenewed(data: any) {
     const { subscription_id, next_billing_date } = data;
 
     // Update subscription with new billing period
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('user_subscriptions')
       .update({
         status: 'active',
@@ -126,7 +134,7 @@ async function handleSubscriptionFailed(data: any) {
     const { subscription_id } = data;
 
     // Update subscription status to failed/on_hold
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('user_subscriptions')
       .update({
         status: 'past_due',
@@ -149,7 +157,7 @@ async function handleSubscriptionCancelled(data: any) {
     const { subscription_id } = data;
 
     // Update subscription status to cancelled
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('user_subscriptions')
       .update({
         status: 'canceled',
@@ -172,14 +180,14 @@ async function handlePaymentSucceeded(data: any) {
     const { payment_id, amount, subscription_id, customer } = data;
 
     // Record payment in payment history
-    const { data: subscription } = await supabase
+    const { data: subscription } = await supabaseAdmin
       .from('user_subscriptions')
       .select('user_id')
       .eq('dodo_subscription_id', subscription_id)
       .single();
 
     if (subscription?.user_id) {
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('payment_history')
         .insert({
           user_id: subscription.user_id,
@@ -205,14 +213,14 @@ async function handlePaymentFailed(data: any) {
     const { payment_id, amount, subscription_id } = data;
 
     // Record failed payment
-    const { data: subscription } = await supabase
+    const { data: subscription } = await supabaseAdmin
       .from('user_subscriptions')
       .select('user_id')
       .eq('dodo_subscription_id', subscription_id)
       .single();
 
     if (subscription?.user_id) {
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('payment_history')
         .insert({
           user_id: subscription.user_id,
