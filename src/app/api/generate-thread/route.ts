@@ -113,33 +113,53 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check usage limits if user is authenticated
+    // Authentication is required
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Authentication service not available' },
+        { status: 500 }
+      );
+    }
+
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: 'Authentication required. Please sign up or log in to generate threads.' },
+        { status: 401 }
+      );
+    }
+
     let userId = null;
-    if (supabase) {
-      const authHeader = request.headers.get('authorization');
-      if (authHeader?.startsWith('Bearer ')) {
-        try {
-          const token = authHeader.substring(7);
-          const { data: { user } } = await supabase.auth.getUser(token);
-          userId = user?.id;
-          
-          if (userId) {
-            const usageStatus = await canUserGenerate(userId);
-            
-            if (!usageStatus.canGenerate) {
-              return NextResponse.json(
-                { 
-                  error: `Usage limit reached. You've used ${usageStatus.currentUsage}/${usageStatus.limit} tweets this month. Upgrade to Pro for more tweets!`,
-                  usageStatus 
-                },
-                { status: 429 }
-              );
-            }
-          }
-        } catch (authError) {
-          console.log('Auth error (non-critical):', authError);
-        }
+    try {
+      const token = authHeader.substring(7);
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      
+      if (authError || !user) {
+        return NextResponse.json(
+          { error: 'Invalid authentication. Please sign up or log in to generate threads.' },
+          { status: 401 }
+        );
       }
+      
+      userId = user.id;
+      
+      // Check usage limits
+      const usageStatus = await canUserGenerate(userId);
+      
+      if (!usageStatus.canGenerate) {
+        return NextResponse.json(
+          { 
+            error: `Usage limit reached. You've used ${usageStatus.currentUsage}/${usageStatus.limit} tweets this month. Upgrade to SuperTw33t for more tweets!`,
+            usageStatus 
+          },
+          { status: 429 }
+        );
+      }
+    } catch (authError) {
+      return NextResponse.json(
+        { error: 'Authentication failed. Please sign up or log in to generate threads.' },
+        { status: 401 }
+      );
     }
 
     // Validate thread length
@@ -210,14 +230,12 @@ export async function POST(request: NextRequest) {
       throw new Error('Failed to generate valid threads');
     }
 
-    // Increment usage if user is authenticated
-    if (supabase && userId) {
-      try {
-        await incrementUsage(userId);
-        console.log('Thread generated and usage incremented for user:', userId);
-      } catch (usageError) {
-        console.warn('Usage increment failed, but continuing:', usageError);
-      }
+    // Increment usage
+    try {
+      await incrementUsage(userId);
+      console.log('Thread generated and usage incremented for user:', userId);
+    } catch (usageError) {
+      console.warn('Usage increment failed, but continuing:', usageError);
     }
 
     return NextResponse.json({

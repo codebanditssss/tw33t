@@ -31,14 +31,17 @@ export function UsageProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Debounce: Don't fetch if we just fetched within the last 5 seconds
+    // Debounce: Don't fetch if we just fetched within the last 10 seconds
     const now = Date.now();
-    if (now - lastFetchTime < 5000) {
+    if (now - lastFetchTime < 10000) {
       return;
     }
     setLastFetchTime(now);
 
-    setLoading(true);
+    // Only show loading if we don't have any data yet
+    if (!usageStatus) {
+      setLoading(true);
+    }
     try {
       const response = await fetch('/api/usage/check', {
         method: 'GET',

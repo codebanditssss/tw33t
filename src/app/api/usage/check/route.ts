@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { canUserGenerate } from '@/lib/usage';
+import { getUserUsageStatus } from '@/lib/usage';
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Check usage
-    const usageStatus = await canUserGenerate(user.id);
+    const usageStatus = await getUserUsageStatus(user.id);
     
     return NextResponse.json({
       success: true,

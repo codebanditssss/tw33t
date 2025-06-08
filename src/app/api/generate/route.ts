@@ -36,38 +36,66 @@ export async function POST(request: NextRequest) {
         // Initial progress
         sendProgress(controller, 0, 'Starting generation...');
 
-        // Get user from request headers (only if Supabase is available)
+        // Authentication is required
+        if (!supabase) {
+          const errorMessage = 'Authentication service not available';
+          controller.enqueue(encoder.encode(JSON.stringify({ error: errorMessage }) + '\n'));
+          controller.close();
+          return;
+        }
+
+        const authHeader = request.headers.get('authorization');
+        if (!authHeader?.startsWith('Bearer ')) {
+          const errorMessage = 'Authentication required. Please sign up or log in to generate tweets.';
+          controller.enqueue(encoder.encode(JSON.stringify({ error: errorMessage }) + '\n'));
+          controller.close();
+          return;
+        }
+
         let userId = null;
-        
-        if (supabase) {
-          const authHeader = request.headers.get('authorization');
-          if (authHeader?.startsWith('Bearer ')) {
-            try {
-              const token = authHeader.substring(7);
-              const { data: { user } } = await supabase.auth.getUser(token);
-              userId = user?.id;
-              
-              // Check usage limits if user is authenticated
-              if (userId) {
-                sendProgress(controller, 10, 'Checking usage limits...');
-                const usageStatus = await canUserGenerate(userId);
-                
-                if (!usageStatus.canGenerate) {
-                  throw new Error(`Usage limit reached. You've used ${usageStatus.currentUsage}/${usageStatus.limit} tweets this month. Upgrade to Pro for more tweets!`);
-                }
-              }
-            } catch (authError) {
-              console.log('Auth error (non-critical):', authError);
-            }
+        try {
+          const token = authHeader.substring(7);
+          const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+          
+          if (authError || !user) {
+            const errorMessage = 'Invalid authentication. Please sign up or log in to generate tweets.';
+            controller.enqueue(encoder.encode(JSON.stringify({ error: errorMessage }) + '\n'));
+            controller.close();
+            return;
           }
+          
+          userId = user.id;
+          
+          // Check usage limits
+          sendProgress(controller, 10, 'Checking usage limits...');
+          const usageStatus = await canUserGenerate(userId);
+          
+          if (!usageStatus.canGenerate) {
+            // Send error through stream instead of throwing
+            const errorMessage = `Usage limit reached. You've used ${usageStatus.currentUsage}/${usageStatus.limit} tweets this month. Upgrade to SuperTw33t for more tweets!`;
+            controller.enqueue(encoder.encode(JSON.stringify({ error: errorMessage }) + '\n'));
+            controller.close();
+            return;
+          }
+        } catch (authError) {
+          const errorMessage = authError instanceof Error ? authError.message : 'Authentication failed. Please sign up or log in to generate tweets.';
+          controller.enqueue(encoder.encode(JSON.stringify({ error: errorMessage }) + '\n'));
+          controller.close();
+          return;
         }
 
         if (!topic || !tone) {
-          throw new Error('Topic and tone are required');
+          const errorMessage = 'Topic and tone are required';
+          controller.enqueue(encoder.encode(JSON.stringify({ error: errorMessage }) + '\n'));
+          controller.close();
+          return;
         }
 
         if (!process.env.DEEPSEEK_API_KEY) {
-          throw new Error('DeepSeek API key not configured');
+          const errorMessage = 'DeepSeek API key not configured';
+          controller.enqueue(encoder.encode(JSON.stringify({ error: errorMessage }) + '\n'));
+          controller.close();
+          return;
         }
 
         sendProgress(controller, 20, 'Preparing prompt...');
@@ -111,7 +139,10 @@ Return only the 5 tweets, each on a new line, numbered 1-5.`;
         });
 
         if (!response.ok) {
-          throw new Error(`DeepSeek API error: ${response.status}`);
+          const errorMessage = `DeepSeek API error: ${response.status}`;
+          controller.enqueue(encoder.encode(JSON.stringify({ error: errorMessage }) + '\n'));
+          controller.close();
+          return;
         }
 
         sendProgress(controller, 60, 'Processing response...');
@@ -134,39 +165,37 @@ Return only the 5 tweets, each on a new line, numbered 1-5.`;
 
         sendProgress(controller, 80, 'Saving results...');
 
-        // Save to database and increment usage if user is authenticated and Supabase is available
-        if (supabase && userId) {
-          try {
-            // Create generation record
-            const { data: generation, error: generationError } = await supabase
-              .from('tweet_generations')
-              .insert({
-                user_id: userId,
-                topic,
-                tone
-              })
-              .select()
-              .single();
+        // Save to database and increment usage
+        try {
+          // Create generation record
+          const { data: generation, error: generationError } = await supabase
+            .from('tweet_generations')
+            .insert({
+              user_id: userId,
+              topic,
+              tone
+            })
+            .select()
+            .single();
 
-            if (!generationError && generation) {
-              // Save individual tweets
-              const tweetsToInsert = tweets.map((tweet: string, index: number) => ({
-                generation_id: generation.id,
-                content: tweet,
-                character_count: tweet.length,
-                position: index + 1
-              }));
+          if (!generationError && generation) {
+            // Save individual tweets
+            const tweetsToInsert = tweets.map((tweet: string, index: number) => ({
+              generation_id: generation.id,
+              content: tweet,
+              character_count: tweet.length,
+              position: index + 1
+            }));
 
-              await supabase
-                .from('generated_tweets')
-                .insert(tweetsToInsert);
-              
-              // Increment usage count
-              await incrementUsage(userId);
-            }
-          } catch (saveError) {
-            console.error('Database save error:', saveError);
+            await supabase
+              .from('generated_tweets')
+              .insert(tweetsToInsert);
+            
+            // Increment usage count
+            await incrementUsage(userId);
           }
+        } catch (saveError) {
+          console.error('Database save error:', saveError);
         }
 
         // Send final result

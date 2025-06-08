@@ -12,6 +12,20 @@ export const PLAN_LIMITS = {
   pro: 500
 } as const;
 
+// Simple in-memory cache for usage data
+interface CacheEntry {
+  data: {
+    canGenerate: boolean;
+    currentUsage: number;
+    limit: number;
+    planType: string;
+  };
+  timestamp: number;
+}
+
+const usageCache = new Map<string, CacheEntry>();
+const CACHE_DURATION = 30 * 1000; // 30 seconds
+
 // Get current month in YYYY-MM format
 export function getCurrentMonth(): string {
   const now = new Date();
@@ -53,23 +67,69 @@ export async function getCurrentUsage(userId: string) {
   return data;
 }
 
-// Check if user can generate tweets
+// Optimized function to get both plan and usage in a single operation
+export async function getUserUsageStatus(userId: string): Promise<{
+  canGenerate: boolean;
+  currentUsage: number;
+  limit: number;
+  planType: string;
+}> {
+  // Check cache first
+  const cacheKey = `${userId}-${getCurrentMonth()}`;
+  const cached = usageCache.get(cacheKey);
+  
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    return cached.data;
+  }
+
+  const monthYear = getCurrentMonth();
+  
+  // Get plan and usage data in parallel for better performance
+  const [planResult, usageResult] = await Promise.all([
+    supabaseAdmin
+      .from('user_subscriptions')
+      .select('plan_type, status')
+      .eq('user_id', userId)
+      .single(),
+    supabaseAdmin
+      .from('monthly_usage')
+      .select('tweets_generated')
+      .eq('user_id', userId)
+      .eq('month_year', monthYear)
+      .single()
+  ]);
+
+  // Handle plan data
+  const planType = planResult.data?.plan_type || 'free';
+  const limit = PLAN_LIMITS[planType as keyof typeof PLAN_LIMITS];
+  
+  // Handle usage data
+  const currentUsage = usageResult.data?.tweets_generated || 0;
+  
+  const result = {
+    canGenerate: currentUsage < limit,
+    currentUsage,
+    limit,
+    planType
+  };
+
+  // Cache the result
+  usageCache.set(cacheKey, {
+    data: result,
+    timestamp: Date.now()
+  });
+
+  return result;
+}
+
+// Check if user can generate tweets (legacy function for backward compatibility)
 export async function canUserGenerate(userId: string): Promise<{
   canGenerate: boolean;
   currentUsage: number;
   limit: number;
   planType: string;
 }> {
-  const plan = await getUserPlan(userId);
-  const usage = await getCurrentUsage(userId);
-  const limit = PLAN_LIMITS[plan.plan_type as keyof typeof PLAN_LIMITS];
-  
-  return {
-    canGenerate: usage.tweets_generated < limit,
-    currentUsage: usage.tweets_generated,
-    limit,
-    planType: plan.plan_type
-  };
+  return getUserUsageStatus(userId);
 }
 
 // Increment usage count
@@ -116,4 +176,8 @@ export async function incrementUsage(userId: string): Promise<void> {
       throw new Error('Failed to create usage record');
     }
   }
+
+  // Invalidate cache after incrementing usage
+  const cacheKey = `${userId}-${monthYear}`;
+  usageCache.delete(cacheKey);
 } 

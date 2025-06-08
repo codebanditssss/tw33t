@@ -5,6 +5,7 @@ import { Header } from "@/components/ui/header";
 import { HeroSection } from "@/components/hero-section";
 import { ResultsSection } from "@/components/results-section";
 import { ThreadResultsSection } from "@/components/thread-results-section";
+import { AuthModal } from "@/components/ui/auth-modal";
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/auth-context';
 import { useUsage } from '@/contexts/usage-context';
@@ -23,6 +24,7 @@ export default function Home() {
   const [currentType, setCurrentType] = useState<'tweet' | 'thread'>('tweet');
   const [progress, setProgress] = useState<{ percent: number; status: string }>({ percent: 0, status: '' });
   const [hasShownSuccessToast, setHasShownSuccessToast] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const { user } = useAuth();
   const { refreshUsage } = useUsage();
   const searchParams = useSearchParams();
@@ -60,6 +62,13 @@ export default function Home() {
       threadStyle?: string;
     }
   ) => {
+    // Check if user is authenticated
+    if (!user) {
+      setIsAuthModalOpen(true);
+      toast.info('Please sign up or log in to generate tweets');
+      return;
+    }
+
     setCurrentTopic(topic);
     setCurrentTone(tone);
     setCurrentType(options?.type || 'tweet');
@@ -98,7 +107,18 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to generate ${options?.type || 'tweets'}`);
+        const errorData = await response.json().catch(() => null);
+        const errorMessage = errorData?.error || `Failed to generate ${options?.type || 'tweets'}`;
+        
+        // If it's an authentication error, show the auth modal
+        if (response.status === 401) {
+          setIsAuthModalOpen(true);
+          toast.error('Please sign up or log in to generate tweets');
+          setMode('hero');
+          return;
+        }
+        
+        throw new Error(errorMessage);
       }
 
       if (options?.type === 'thread') {
@@ -129,7 +149,10 @@ export default function Home() {
               const data = JSON.parse(line);
               
               if (data.error) {
-                throw new Error(data.error);
+                // Handle error from stream
+                toast.error(data.error);
+                setMode('hero');
+                return; // Exit the function completely
               }
               
               if (data.progress !== undefined) {
@@ -155,6 +178,8 @@ export default function Home() {
               }
             } catch (e) {
               console.error('Error parsing chunk:', e);
+              // If it's a JSON parse error, it might be an incomplete chunk, continue
+              continue;
             }
           }
         }
@@ -262,6 +287,13 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      {/* Auth Modal */}
+      <AuthModal 
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        defaultTab="signup"
+      />
     </div>
   );
 }
