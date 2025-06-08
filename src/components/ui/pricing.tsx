@@ -5,13 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Check } from 'lucide-react';
 import { AuthModal } from "@/components/ui/auth-modal";
 import { useAuth } from '@/contexts/auth-context';
+import { useUsage } from '@/contexts/usage-context';
 import { toast } from 'sonner';
+import { useSearchParams } from 'next/navigation';
 
 function PricingSection() {
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [hasShownSuccessToast, setHasShownSuccessToast] = useState(false);
   const { user } = useAuth();
+  const { refreshUsage } = useUsage();
+  const searchParams = useSearchParams();
 
   // Listen for auth state changes
   useEffect(() => {
@@ -20,9 +24,59 @@ function PricingSection() {
     }
   }, [user]);
 
-  const handleSubscription = (planName: string) => {
-    // Here you would integrate with your payment provider
-    toast.success(`Starting subscription process for ${planName} plan`);
+  // Handle success return from payment
+  useEffect(() => {
+    const success = searchParams.get('success');
+    if (success === 'true' && user && !hasShownSuccessToast) {
+      toast.success('Payment successful! Your Pro subscription is now active.');
+      setHasShownSuccessToast(true);
+      // Refresh usage to update the UI
+      refreshUsage();
+      
+      // Clear the success parameter from URL to prevent re-triggering
+      const url = new URL(window.location.href);
+      url.searchParams.delete('success');
+      url.searchParams.delete('subscription_id');
+      url.searchParams.delete('status');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [searchParams, user?.id, refreshUsage, hasShownSuccessToast]); // Use user.id instead of user object
+
+  const handleSubscription = async (planName: string) => {
+    if (planName === 'Free') {
+      toast.success('You are already on the Free plan!');
+      setSelectedPlan(null);
+      return;
+    }
+
+    if (planName === 'Pro') {
+      try {
+        toast.info('Creating subscription...');
+        
+        const response = await fetch('/api/subscription/create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include', // Include cookies for auth
+          body: JSON.stringify({ planType: 'pro' }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.payment_link) {
+          toast.success('Redirecting to payment...');
+          // Redirect to Dodo Payments checkout
+          window.location.href = data.payment_link;
+        } else {
+          toast.error(data.error || 'Failed to create subscription');
+        }
+      } catch (error) {
+        console.error('Subscription error:', error);
+        toast.error('Failed to create subscription');
+      }
+    }
+    
     setSelectedPlan(null);
   };
 
@@ -43,67 +97,34 @@ function PricingSection() {
 
   const plans = [
     {
-      name: 'Starter',
+      name: 'Free',
       description: 'Perfect for trying out tw33t',
-      price: billingCycle === 'monthly' ? 0 : 0,
-      features: {
-        tweets: 'Generate up to 50 tweets/month',
-        analytics: 'Basic tweet performance metrics',
-        templates: '10+ tweet templates',
-        support: 'Community support',
-        scheduling: 'Basic scheduling',
-        ai: 'Basic AI suggestions',
-        collaboration: '-',
-        api: '-',
-        customization: '-'
-      }
+      price: 0,
+      features: [
+        '50 tweets per month',
+        'All tweet styles & tones',
+        'Thread generation',
+        'Basic templates',
+        'Community support'
+      ]
     },
     {
       name: 'Pro',
       description: 'For power users and creators',
-      price: billingCycle === 'monthly' ? 19 : 190,
+      price: 5.99,
       popular: true,
-      features: {
-        tweets: 'Generate up to 500 tweets/month',
-        analytics: 'Advanced analytics dashboard',
-        templates: '50+ premium templates',
-        support: 'Priority email support',
-        scheduling: 'Advanced scheduling',
-        ai: 'Advanced AI suggestions',
-        collaboration: '2 team members',
-        api: 'Basic API access',
-        customization: 'Basic customization'
-      }
-    },
-    {
-      name: 'Enterprise',
-      description: 'For teams and businesses',
-      price: billingCycle === 'monthly' ? 49 : 490,
-      features: {
-        tweets: 'Unlimited tweet generation',
-        analytics: 'Full analytics suite',
-        templates: 'Unlimited custom templates',
-        support: '24/7 dedicated support',
-        scheduling: 'Custom scheduling rules',
-        ai: 'Custom AI training',
-        collaboration: 'Unlimited team members',
-        api: 'Full API access',
-        customization: 'Full customization'
-      }
+      features: [
+        '500 tweets per month',
+        'All tweet styles & tones',
+        'Unlimited thread generation',
+        'Premium templates',
+        'Priority support',
+        'Advanced AI features'
+      ]
     }
   ];
 
-  const featureLabels = {
-    tweets: 'Tweet Generation',
-    analytics: 'Analytics',
-    templates: 'Templates',
-    support: 'Support',
-    scheduling: 'Scheduling',
-    ai: 'AI Features',
-    collaboration: 'Team Members',
-    api: 'API Access',
-    customization: 'Customization'
-  };
+
 
   return (
     <div className="w-full max-w-7xl mx-auto px-6 py-16">
@@ -131,87 +152,11 @@ function PricingSection() {
           </p>
         </div>
 
-        {/* Billing Toggle */}
-        <div className="flex flex-col items-center justify-center space-y-6">
-          <div 
-            className="inline-flex p-1.5 rounded-2xl relative"
-            style={{ 
-              backgroundColor: 'rgba(30, 30, 35, 0.6)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              boxShadow: '0 4px 24px rgba(0, 0, 0, 0.2)',
-              minWidth: '300px'
-            }}
-          >
-            {/* Sliding Background */}
-            <div 
-              className="absolute transition-all duration-500 ease-out"
-              style={{
-                top: '6px',
-                bottom: '6px',
-                left: billingCycle === 'monthly' ? '6px' : '50%',
-                right: billingCycle === 'monthly' ? '50%' : '6px',
-                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
-                borderRadius: '1rem',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.3)',
-                zIndex: 0
-              }}
-            />
 
-            {/* Monthly Button */}
-            <button
-              onClick={() => setBillingCycle('monthly')}
-              className={`
-                relative z-10 px-12 py-3 text-sm font-medium rounded-xl transition-all duration-300
-                ${billingCycle === 'monthly' 
-                  ? 'text-white' 
-                  : 'text-gray-400 hover:text-gray-300'}
-              `}
-            >
-              Monthly
-            </button>
-
-            {/* Yearly Button */}
-            <button
-              onClick={() => setBillingCycle('yearly')}
-              className={`
-                relative z-10 px-12 py-3 text-sm font-medium rounded-xl transition-all duration-300
-                ${billingCycle === 'yearly' 
-                  ? 'text-white' 
-                  : 'text-gray-400 hover:text-gray-300'}
-              `}
-            >
-              Yearly
-            </button>
-          </div>
-
-          {/* Savings Badge */}
-          <div 
-            className={`
-              transform transition-all duration-500 ease-out
-              ${billingCycle === 'yearly' 
-                ? 'opacity-100 translate-y-0' 
-                : 'opacity-0 -translate-y-4 pointer-events-none'
-              }
-            `}
-          >
-            <div
-              className="px-4 py-2 rounded-full text-sm font-medium"
-              style={{
-                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                color: '#FFFFFF'
-              }}
-            >
-              Save 20% yearly
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Pricing Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16 max-w-4xl mx-auto">
         {plans.map((plan) => (
           <div 
             key={plan.name}
@@ -273,30 +218,23 @@ function PricingSection() {
                 </p>
                 <div className="mt-4">
                   <span className="text-3xl font-bold" style={{ color: '#FFFFFF' }}>
-                    ${billingCycle === 'monthly' ? plan.price : plan.price * 10}
+                    ${plan.price === 0 ? '0' : plan.price}
                   </span>
-                  <span className="text-sm ml-2" style={{ color: '#B5B5B5' }}>
-                    /{billingCycle === 'monthly' ? 'mo' : 'yr'}
-                  </span>
+                  {plan.price > 0 && (
+                    <span className="text-sm ml-2" style={{ color: '#B5B5B5' }}>
+                      /month
+                    </span>
+                  )}
                 </div>
               </div>
 
-              <div className="space-y-4 mb-8">
-                {Object.entries(plan.features).map(([key, value]) => (
-                  <div key={key} className="flex items-center justify-between">
-                    <span className="text-sm" style={{ color: '#B5B5B5' }}>
-                      {key}
+              <div className="space-y-3 mb-8">
+                {plan.features.map((feature, index) => (
+                  <div key={index} className="flex items-center gap-3">
+                    <Check className="w-4 h-4 text-green-400 flex-shrink-0" />
+                    <span className="text-sm" style={{ color: '#FFFFFF' }}>
+                      {feature}
                     </span>
-                    <div className="flex items-center">
-                      <span 
-                        className="text-sm ml-2" 
-                        style={{ 
-                          color: value === '-' ? '#666668' : '#FFFFFF'
-                        }}
-                      >
-                        {value}
-                      </span>
-                    </div>
                   </div>
                 ))}
               </div>
@@ -321,7 +259,7 @@ function PricingSection() {
                   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
                 }}
               >
-                {user ? 'Choose Plan' : 'Get Started'}
+{plan.name === 'Free' ? 'Get Started Free' : (user ? 'Upgrade to Pro' : 'Get Started')}
               </Button>
             </div>
           </div>

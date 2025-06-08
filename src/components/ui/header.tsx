@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { AuthModal } from "@/components/ui/auth-modal";
 import { ProfileDropdown } from "@/components/ui/profile-dropdown";
+import { CreditsDisplay } from "@/components/ui/credits-display";
 import { useAuth } from '@/contexts/auth-context';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -77,7 +78,10 @@ function Header() {
             </Link>
             
             {user ? (
-              <ProfileDropdown />
+              <div className="flex items-center gap-4">
+                <CreditsDisplay />
+                <ProfileDropdown />
+              </div>
             ) : (
               <div className="flex items-center gap-3">
                 <Button 

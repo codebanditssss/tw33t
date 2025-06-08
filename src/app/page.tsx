@@ -7,6 +7,7 @@ import { ResultsSection } from "@/components/results-section";
 import { ThreadResultsSection } from "@/components/thread-results-section";
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/auth-context';
+import { useUsage } from '@/contexts/usage-context';
 import { supabase } from '@/lib/supabase';
 
 type Mode = 'hero' | 'loading' | 'results';
@@ -21,6 +22,7 @@ export default function Home() {
   const [currentType, setCurrentType] = useState<'tweet' | 'thread'>('tweet');
   const [progress, setProgress] = useState<{ percent: number; status: string }>({ percent: 0, status: '' });
   const { user } = useAuth();
+  const { refreshUsage } = useUsage();
 
   const handleGenerate = async (
     topic: string, 
@@ -78,6 +80,10 @@ export default function Home() {
         setGeneratedThreads(data.threads || []);
         setGeneratedTweets([]); // Clear tweets when showing threads
         setMode('results');
+        // Refresh usage after successful generation
+        if (user) {
+          await refreshUsage();
+        }
       } else {
         // Handle streaming response for tweets
         const reader = response.body?.getReader();
@@ -113,6 +119,10 @@ export default function Home() {
                     setSelectedTweet(finalData.tweets[0] || '');
                     setGeneratedThreads([]);
                     setMode('results');
+                    // Refresh usage after successful generation
+                    if (user) {
+                      await refreshUsage();
+                    }
                   }
                 }
               }

@@ -163,11 +163,11 @@ function ToneSelector({ onToneChange, className }: ToneSelectorProps) {
               onClick={() => handleToneSelect(tone.value)}
               className={`
                 group flex items-center justify-center gap-2 px-4 py-2.5
-                rounded-full text-xs font-medium transition-colors duration-200
+                rounded-full text-xs cursor-pointer bg-[#252628]/50 font-medium transition-colors duration-200
                 border
                 ${isSelected 
                   ? `${colors.selected} text-white` 
-                  : `bg-transparent border-[#1E1E1E] text-gray-300 ${colors.hover}`}
+                  : ` border-[#252628]/70 text-gray-300 ${colors.hover}`}
               `}
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.95 }}

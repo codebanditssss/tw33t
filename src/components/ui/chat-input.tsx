@@ -60,7 +60,7 @@ function ChatInput({
 					variant === "default" &&
 						"flex flex-col w-full p-3 rounded-2xl border backdrop-blur-sm transition-all duration-200",
 					variant === "unstyled" && "flex items-start gap-2 w-full",
-					"bg-[#0A0A0A]/60 border-[#1E1E1E] focus-within:bg-[#0A0A0A]/80 focus-within:border-[#2A2A2A]",
+					"bg-[#252628] border-[#3B3B3D] focus-within:bg-[#252628] focus-within:border-[#3B3B3D]",
 					className,
 				)}
 			>

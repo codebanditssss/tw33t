@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { canUserGenerate, incrementUsage } from '@/lib/usage';
 
 // Initialize Supabase only if keys are available
 let supabase: any = null;
@@ -45,6 +46,16 @@ export async function POST(request: NextRequest) {
               const token = authHeader.substring(7);
               const { data: { user } } = await supabase.auth.getUser(token);
               userId = user?.id;
+              
+              // Check usage limits if user is authenticated
+              if (userId) {
+                sendProgress(controller, 10, 'Checking usage limits...');
+                const usageStatus = await canUserGenerate(userId);
+                
+                if (!usageStatus.canGenerate) {
+                  throw new Error(`Usage limit reached. You've used ${usageStatus.currentUsage}/${usageStatus.limit} tweets this month. Upgrade to Pro for more tweets!`);
+                }
+              }
             } catch (authError) {
               console.log('Auth error (non-critical):', authError);
             }
@@ -123,7 +134,7 @@ Return only the 5 tweets, each on a new line, numbered 1-5.`;
 
         sendProgress(controller, 80, 'Saving results...');
 
-        // Save to database if user is authenticated and Supabase is available
+        // Save to database and increment usage if user is authenticated and Supabase is available
         if (supabase && userId) {
           try {
             // Create generation record
@@ -149,6 +160,9 @@ Return only the 5 tweets, each on a new line, numbered 1-5.`;
               await supabase
                 .from('generated_tweets')
                 .insert(tweetsToInsert);
+              
+              // Increment usage count
+              await incrementUsage(userId);
             }
           } catch (saveError) {
             console.error('Database save error:', saveError);

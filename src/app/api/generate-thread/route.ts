@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { canUserGenerate, incrementUsage } from '@/lib/usage';
 
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
 
 if (!DEEPSEEK_API_KEY) {
   console.warn('DEEPSEEK_API_KEY is not set. Thread generation will not work.');
+}
+
+// Initialize Supabase only if keys are available
+let supabase: any = null;
+if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
 }
 
 // Thread-specific prompts for different styles
@@ -102,6 +113,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check usage limits if user is authenticated
+    let userId = null;
+    if (supabase) {
+      const authHeader = request.headers.get('authorization');
+      if (authHeader?.startsWith('Bearer ')) {
+        try {
+          const token = authHeader.substring(7);
+          const { data: { user } } = await supabase.auth.getUser(token);
+          userId = user?.id;
+          
+          if (userId) {
+            const usageStatus = await canUserGenerate(userId);
+            
+            if (!usageStatus.canGenerate) {
+              return NextResponse.json(
+                { 
+                  error: `Usage limit reached. You've used ${usageStatus.currentUsage}/${usageStatus.limit} tweets this month. Upgrade to Pro for more tweets!`,
+                  usageStatus 
+                },
+                { status: 429 }
+              );
+            }
+          }
+        } catch (authError) {
+          console.log('Auth error (non-critical):', authError);
+        }
+      }
+    }
+
     // Validate thread length
     if (threadLength < 2 || threadLength > 20) {
       return NextResponse.json(
@@ -170,16 +210,14 @@ export async function POST(request: NextRequest) {
       throw new Error('Failed to generate valid threads');
     }
 
-    // Save to database if user is authenticated (optional, like tweets)
-    try {
-      const authHeader = request.headers.get('authorization');
-      if (authHeader?.startsWith('Bearer ')) {
-        // Database saving logic would go here
-        // For now, we'll skip it to keep the API working without database
-        console.log('Thread generated for authenticated user');
+    // Increment usage if user is authenticated
+    if (supabase && userId) {
+      try {
+        await incrementUsage(userId);
+        console.log('Thread generated and usage incremented for user:', userId);
+      } catch (usageError) {
+        console.warn('Usage increment failed, but continuing:', usageError);
       }
-    } catch (dbError) {
-      console.warn('Database save failed, but continuing:', dbError);
     }
 
     return NextResponse.json({
