@@ -3,6 +3,7 @@ import { Poppins } from "next/font/google";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/contexts/auth-context";
 import { UsageProvider } from "@/contexts/usage-context";
+import { FloatingUpgradeCard } from "@/components/ui/floating-upgrade-card";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -29,6 +30,7 @@ export default function RootLayout({
         <AuthProvider>
           <UsageProvider>
             {children}
+            <FloatingUpgradeCard />
             <Toaster />
           </UsageProvider>
         </AuthProvider>

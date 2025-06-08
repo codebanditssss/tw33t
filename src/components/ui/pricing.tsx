@@ -5,17 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Check } from 'lucide-react';
 import { AuthModal } from "@/components/ui/auth-modal";
 import { useAuth } from '@/contexts/auth-context';
-import { useUsage } from '@/contexts/usage-context';
 import { toast } from 'sonner';
-import { useSearchParams } from 'next/navigation';
 
 function PricingSection() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [hasShownSuccessToast, setHasShownSuccessToast] = useState(false);
   const { user } = useAuth();
-  const { refreshUsage } = useUsage();
-  const searchParams = useSearchParams();
 
   // Listen for auth state changes
   useEffect(() => {
@@ -24,38 +19,8 @@ function PricingSection() {
     }
   }, [user]);
 
-  // Handle success return from payment
-  useEffect(() => {
-    const success = searchParams.get('success');
-    const subscriptionId = searchParams.get('subscription_id');
-    
-    if (success === 'true' && user && !hasShownSuccessToast) {
-      console.log('Payment success detected, subscription ID:', subscriptionId);
-      toast.success('Payment successful! Your Pro subscription is now active.');
-      setHasShownSuccessToast(true);
-      
-      // Refresh usage to update the UI with a slight delay to allow webhook processing
-      setTimeout(() => {
-        refreshUsage();
-      }, 2000);
-      
-      // Clear the success parameter from URL to prevent re-triggering
-      const url = new URL(window.location.href);
-      url.searchParams.delete('success');
-      url.searchParams.delete('subscription_id');
-      url.searchParams.delete('status');
-      window.history.replaceState({}, '', url.toString());
-    }
-  }, [searchParams, user?.id, refreshUsage, hasShownSuccessToast]);
-
   const handleSubscription = async (planName: string) => {
-    if (planName === 'Free') {
-      toast.success('You are already on the Free plan!');
-      setSelectedPlan(null);
-      return;
-    }
-
-    if (planName === 'Pro') {
+    if (planName === 'SuperTw33t') {
       try {
         toast.info('Creating subscription...');
         
@@ -107,19 +72,7 @@ function PricingSection() {
 
   const plans = [
     {
-      name: 'Free',
-      description: 'Perfect for trying out tw33t',
-      price: 0,
-      features: [
-        '50 tweets per month',
-        'All tweet styles & tones',
-        'Thread generation',
-        'Basic templates',
-        'Community support'
-      ]
-    },
-    {
-      name: 'Pro',
+      name: 'SuperTw33t',
       description: 'For power users and creators',
       price: 5.99,
       popular: true,
@@ -148,7 +101,7 @@ function PricingSection() {
               lineHeight: '1.2'
             }}
           >
-            Get started with tw33t today
+            Upgrade to SuperTw33t
           </h2>
           <p 
             className="text-xl md:text-2xl font-medium"
@@ -158,20 +111,33 @@ function PricingSection() {
               margin: '0 auto'
             }}
           >
-            and elevate your Twitter game
+            Unlock unlimited potential for your Twitter content
           </p>
         </div>
 
 
       </div>
 
+      {/* Free Plan Info */}
+      <div className="text-center mb-12">
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full" style={{
+          background: 'linear-gradient(135deg, rgba(45, 45, 55, 0.8) 0%, rgba(35, 35, 45, 0.8) 100%)',
+          border: '1px solid rgba(255, 255, 255, 0.1)'
+        }}>
+          <Check className="w-4 h-4 text-green-400" />
+          <span className="text-sm" style={{ color: '#FFFFFF' }}>
+            Free plan included: 50 tweets per month for all users
+          </span>
+        </div>
+      </div>
+
       {/* Pricing Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16 max-w-4xl mx-auto">
+      <div className="flex justify-center">
         {plans.map((plan) => (
           <div 
             key={plan.name}
             className={`
-              relative rounded-2xl overflow-hidden
+              relative rounded-2xl overflow-hidden w-full max-w-md
               ${plan.popular ? 'transform -translate-y-4' : ''}
               group
             `}
@@ -269,7 +235,7 @@ function PricingSection() {
                   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
                 }}
               >
-{plan.name === 'Free' ? 'Get Started Free' : (user ? 'Upgrade to Pro' : 'Get Started')}
+                {user ? 'Upgrade to SuperTw33t' : 'Get Started'}
               </Button>
             </div>
           </div>

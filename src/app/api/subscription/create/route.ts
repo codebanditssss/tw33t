@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
       product_id: process.env.DODO_PRO_PRODUCT_ID,
       quantity: 1,
       payment_link: true,
-      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing?success=true`,
+      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/?success=true`,
       metadata: {
         user_id: user.id,
         plan_type: 'pro'

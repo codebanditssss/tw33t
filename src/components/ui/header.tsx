@@ -7,7 +7,6 @@ import { ProfileDropdown } from "@/components/ui/profile-dropdown";
 import { CreditsDisplay } from "@/components/ui/credits-display";
 import { useAuth } from '@/contexts/auth-context';
 import Image from 'next/image';
-import Link from 'next/link';
 
 function Header() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -56,27 +55,6 @@ function Header() {
 
           {/* Navigation */}
           <div className="flex items-center gap-4">
-            <Link 
-              href="/pricing"
-              className="group relative px-5 py-2.5 text-sm font-medium rounded-xl transition-all duration-300 ease-out hover:-translate-y-0.5 active:translate-y-0"
-              style={{ 
-                color: '#FFFFFF',
-                background: 'linear-gradient(135deg, rgba(42,42,45,0.4) 0%, rgba(35,35,37,0.4) 100%)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.1)'
-              }}
-            >
-              <span className="relative z-10">Pricing</span>
-              <div 
-                className="absolute inset-0 rounded-xl transition-opacity duration-300 opacity-0 group-hover:opacity-100"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%)',
-                  filter: 'blur(2px)'
-                }}
-              />
-            </Link>
-            
             {user ? (
               <div className="flex items-center gap-4">
                 <CreditsDisplay />

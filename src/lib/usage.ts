@@ -76,28 +76,17 @@ export async function canUserGenerate(userId: string): Promise<{
 export async function incrementUsage(userId: string): Promise<void> {
   const monthYear = getCurrentMonth();
   
-  // Use upsert to either create new record or increment existing
-  const { error } = await supabaseAdmin
+  // First, try to get existing record
+  const { data: currentData } = await supabaseAdmin
     .from('monthly_usage')
-    .upsert({
-      user_id: userId,
-      month_year: monthYear,
-      tweets_generated: 1
-    }, {
-      onConflict: 'user_id,month_year',
-      ignoreDuplicates: false
-    });
+    .select('tweets_generated')
+    .eq('user_id', userId)
+    .eq('month_year', monthYear)
+    .single();
 
-  if (error) {
-    // If upsert failed, try to increment existing record
-    const { data: currentData } = await supabaseAdmin
-      .from('monthly_usage')
-      .select('tweets_generated')
-      .eq('user_id', userId)
-      .eq('month_year', monthYear)
-      .single();
-
-    const newCount = (currentData?.tweets_generated || 0) + 1;
+  if (currentData) {
+    // Record exists, increment it
+    const newCount = currentData.tweets_generated + 1;
     
     const { error: updateError } = await supabaseAdmin
       .from('monthly_usage')
@@ -111,6 +100,20 @@ export async function incrementUsage(userId: string): Promise<void> {
     if (updateError) {
       console.error('Failed to increment usage:', updateError);
       throw new Error('Failed to update usage count');
+    }
+  } else {
+    // Record doesn't exist, create new one with count 1
+    const { error: insertError } = await supabaseAdmin
+      .from('monthly_usage')
+      .insert({
+        user_id: userId,
+        month_year: monthYear,
+        tweets_generated: 1
+      });
+
+    if (insertError) {
+      console.error('Failed to create usage record:', insertError);
+      throw new Error('Failed to create usage record');
     }
   }
 } 

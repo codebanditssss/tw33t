@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from "@/components/ui/header";
 import { HeroSection } from "@/components/hero-section";
 import { ResultsSection } from "@/components/results-section";
@@ -8,6 +8,7 @@ import { ThreadResultsSection } from "@/components/thread-results-section";
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/auth-context';
 import { useUsage } from '@/contexts/usage-context';
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 type Mode = 'hero' | 'loading' | 'results';
@@ -21,8 +22,34 @@ export default function Home() {
   const [currentTone, setCurrentTone] = useState<string>('');
   const [currentType, setCurrentType] = useState<'tweet' | 'thread'>('tweet');
   const [progress, setProgress] = useState<{ percent: number; status: string }>({ percent: 0, status: '' });
+  const [hasShownSuccessToast, setHasShownSuccessToast] = useState(false);
   const { user } = useAuth();
   const { refreshUsage } = useUsage();
+  const searchParams = useSearchParams();
+
+  // Handle success return from payment
+  useEffect(() => {
+    const success = searchParams.get('success');
+    const subscriptionId = searchParams.get('subscription_id');
+    
+    if (success === 'true' && user && !hasShownSuccessToast) {
+      console.log('Payment success detected, subscription ID:', subscriptionId);
+      toast.success('Payment successful! Your SuperTw33t subscription is now active.');
+      setHasShownSuccessToast(true);
+      
+      // Refresh usage to update the UI with a slight delay to allow webhook processing
+      setTimeout(() => {
+        refreshUsage();
+      }, 2000);
+      
+      // Clear the success parameter from URL to prevent re-triggering
+      const url = new URL(window.location.href);
+      url.searchParams.delete('success');
+      url.searchParams.delete('subscription_id');
+      url.searchParams.delete('status');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [searchParams, user?.id, refreshUsage, hasShownSuccessToast]);
 
   const handleGenerate = async (
     topic: string, 
