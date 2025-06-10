@@ -11,33 +11,19 @@ interface ResultsSectionProps {
 function ResultsSection({ tweets, selectedTweet, onSelectTweet, onGenerateMore }: ResultsSectionProps) {
   return (
     <div className="w-full max-w-6xl">
-      {/* Split Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Left Side - Tweet Variations */}
-        <div className="space-y-6">
+        <div className="min-w-[550px]">
           <TweetVariations 
             tweets={tweets}
             selectedTweet={selectedTweet}
             onSelectTweet={onSelectTweet}
+            onGenerateMore={onGenerateMore}
           />
-          
-          {/* Generate More Button */}
-          <div className="flex justify-center pt-4">
-            <button
-              onClick={onGenerateMore}
-              className="px-6 py-3 rounded-lg font-medium transition-all duration-200 hover:opacity-80"
-              style={{
-                backgroundColor: '#3E3F41',
-                color: '#FFFFFF'
-              }}
-            >
-              Generate More Tweets
-            </button>
-          </div>
         </div>
 
         {/* Right Side - Twitter Preview */}
-        <div>
+        <div className="min-w-[550px]">
           <TwitterPreview tweet={selectedTweet} />
         </div>
       </div>

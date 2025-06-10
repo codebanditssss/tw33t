@@ -11,15 +11,17 @@ import { useState, useEffect } from "react";
 
 interface ChatInputDemoProps {
 	onGenerate?: (topic: string, tone: string, options?: {
-		type: 'tweet' | 'thread';
+		type: 'tweet' | 'thread' | 'reply';
 		threadLength?: number;
 		threadStyle?: string;
+		originalTweet?: string;
 	}) => void;
 	selectedTab?: string;
 }
 
 function ChatInputDemo({ onGenerate, selectedTab = "Tweets" }: ChatInputDemoProps) {
 	const [value, setValue] = useState("");
+	const [originalTweet, setOriginalTweet] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
 	const [selectedTone, setSelectedTone] = useState("professional");
 	const [threadLength, setThreadLength] = useState(8);
@@ -28,24 +30,38 @@ function ChatInputDemo({ onGenerate, selectedTab = "Tweets" }: ChatInputDemoProp
 
 	const threadPlaceholders = [
 		"How did you scale your startup to 1M users?",
-		"Share your journey from beginner to expert",
-		"What's your framework for making tough decisions?",
+		"Share your journey from beginner to expert",	
 		"Explain blockchain like I'm five",
 		"Your top 10 productivity hacks that actually work",
 		"The biggest lessons from your failures",
 		"A step-by-step guide to mastering your craft"
 	];
 
-	const [threadPlaceholderIndex, setThreadPlaceholderIndex] = useState(0);
+	const replyPlaceholders = [
+		"What's your thoughtful response to this tweet?",
+		"Share your perspective on this topic",
+		"Add value to this conversation",
+		"What insights can you contribute?",
+		"How would you engage with this tweet?",
+		"What's your take on this discussion?"
+	];
 
-	// Rotate thread placeholders every 3 seconds
+	const [threadPlaceholderIndex, setThreadPlaceholderIndex] = useState(0);
+	const [replyPlaceholderIndex, setReplyPlaceholderIndex] = useState(0);
+
+	// Rotate placeholders every 3 seconds
 	useEffect(() => {
+		let interval: NodeJS.Timeout;
 		if (selectedTab === "Threads") {
-			const interval = setInterval(() => {
+			interval = setInterval(() => {
 				setThreadPlaceholderIndex((prev) => (prev + 1) % threadPlaceholders.length);
 			}, 3000);
-			return () => clearInterval(interval);
+		} else if (selectedTab === "Replies") {
+			interval = setInterval(() => {
+				setReplyPlaceholderIndex((prev) => (prev + 1) % replyPlaceholders.length);
+			}, 3000);
 		}
+		return () => clearInterval(interval);
 	}, [selectedTab]);
 
 	const handleSubmit = () => {
@@ -54,15 +70,22 @@ function ChatInputDemo({ onGenerate, selectedTab = "Tweets" }: ChatInputDemoProp
 		setIsLoading(true);
 		
 		if (onGenerate) {
-			const options = selectedTab === "Threads" ? {
-				type: 'thread' as const,
-				threadLength,
-				threadStyle
-			} : {
-				type: 'tweet' as const
-			};
-			
-			onGenerate(value.trim(), selectedTone, options);
+			if (selectedTab === "Threads") {
+				onGenerate(value.trim(), selectedTone, {
+					type: 'thread',
+					threadLength,
+					threadStyle
+				});
+			} else if (selectedTab === "Replies") {
+				onGenerate(value.trim(), selectedTone, {
+					type: 'reply',
+					originalTweet: originalTweet || value.trim()
+				});
+			} else {
+				onGenerate(value.trim(), selectedTone, {
+					type: 'tweet'
+				});
+			}
 		}
 		
 		setTimeout(() => {
@@ -71,6 +94,7 @@ function ChatInputDemo({ onGenerate, selectedTab = "Tweets" }: ChatInputDemoProp
 	};
 
 	const isThreadMode = selectedTab === "Threads";
+	const isReplyMode = selectedTab === "Replies";
 
 	return (
 		<div className="w-full space-y-8">
@@ -93,8 +117,30 @@ function ChatInputDemo({ onGenerate, selectedTab = "Tweets" }: ChatInputDemoProp
 					/>
 				</div>
 			</div>
+
+			{/* Original Tweet Input - Only visible for replies */}
+			{isReplyMode && (
+				<div className="px-1">
+					<div className="space-y-2">
+						<label className="block text-sm font-medium text-gray-400">
+							Original Tweet
+						</label>
+						<ChatInput
+							variant="default"
+							value={originalTweet}
+							onChange={(e) => setOriginalTweet(e.target.value)}
+							className="backdrop-blur-md"
+							placeholder="Paste or type the tweet you want to reply to..."
+						>
+							<div className="relative">
+								<ChatInputTextArea />
+							</div>
+						</ChatInput>
+					</div>
+				</div>
+			)}
 			
-			{/* Chat Input */}
+			{/* Main Input */}
 			<ChatInput
 				variant="default"
 				value={value}
@@ -103,7 +149,13 @@ function ChatInputDemo({ onGenerate, selectedTab = "Tweets" }: ChatInputDemoProp
 				loading={isLoading}
 				onStop={() => setIsLoading(false)}
 				className="backdrop-blur-md"
-				placeholder={isThreadMode ? threadPlaceholders[threadPlaceholderIndex] : placeholder}
+				placeholder={
+					isThreadMode 
+						? threadPlaceholders[threadPlaceholderIndex]
+						: isReplyMode
+							? replyPlaceholders[replyPlaceholderIndex]
+							: placeholder
+				}
 			>
 				<div className="relative">
 					<ChatInputTextArea />

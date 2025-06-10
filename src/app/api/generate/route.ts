@@ -91,8 +91,8 @@ export async function POST(request: NextRequest) {
           return;
         }
 
-        if (!process.env.DEEPSEEK_API_KEY) {
-          const errorMessage = 'DeepSeek API key not configured';
+        if (!process.env.OPENAI_API_KEY) {
+          const errorMessage = 'OpenAI API key not configured';
           controller.enqueue(encoder.encode(JSON.stringify({ error: errorMessage }) + '\n'));
           controller.close();
           return;
@@ -117,16 +117,14 @@ Return only the 5 tweets, each on a new line, numbered 1-5.`;
 
         sendProgress(controller, 40, 'Connecting to AI...');
         
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'http://localhost:3000',
-            'X-Title': 'Tweet Generator'
+            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            model: 'deepseek/deepseek-r1',
+            model: 'gpt-3.5-turbo',
             messages: [
               {
                 role: 'user',
@@ -139,7 +137,7 @@ Return only the 5 tweets, each on a new line, numbered 1-5.`;
         });
 
         if (!response.ok) {
-          const errorMessage = `DeepSeek API error: ${response.status}`;
+          const errorMessage = `OpenAI API error: ${response.status}`;
           controller.enqueue(encoder.encode(JSON.stringify({ error: errorMessage }) + '\n'));
           controller.close();
           return;

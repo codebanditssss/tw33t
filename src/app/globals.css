@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 :root {
   --background: 0 0% 100%;
   --foreground: 0 0% 9%;
@@ -26,6 +39,9 @@
   --chart-4: 43 74% 66%;
   --chart-5: 27 87% 67%;
   --radius: 0.5rem;
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 0, 0, 0;
+  --background-end-rgb: 0, 0, 0;
 }
 
 @theme inline {
@@ -88,8 +104,13 @@
 }
 
 body {
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+  color: rgb(var(--foreground-rgb));
   font-family: var(--font-poppins), Arial, Helvetica, sans-serif;
 }
 

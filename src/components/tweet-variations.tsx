@@ -1,17 +1,27 @@
 'use client';
 
-import { useState } from 'react';
-import { Copy, Check } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Copy, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface TweetVariationsProps {
   tweets: string[];
   selectedTweet: string;
   onSelectTweet: (tweet: string) => void;
+  onGenerateMore: () => void;
 }
 
-function TweetVariations({ tweets, selectedTweet, onSelectTweet }: TweetVariationsProps) {
+function TweetVariations({ tweets, selectedTweet, onSelectTweet, onGenerateMore }: TweetVariationsProps) {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Synchronize selected tweet with current index
+  useEffect(() => {
+    const tweet = tweets[currentIndex];
+    if (tweet && tweet !== selectedTweet) {
+      onSelectTweet(tweet);
+    }
+  }, [currentIndex, tweets, selectedTweet, onSelectTweet]);
 
   const handleCopy = async (tweet: string, index: number) => {
     try {
@@ -19,7 +29,6 @@ function TweetVariations({ tweets, selectedTweet, onSelectTweet }: TweetVariatio
       setCopiedIndex(index);
       toast.success('Tweet copied to clipboard!');
       
-      // Reset copy state after 2 seconds
       setTimeout(() => {
         setCopiedIndex(null);
       }, 2000);
@@ -36,19 +45,28 @@ function TweetVariations({ tweets, selectedTweet, onSelectTweet }: TweetVariatio
     return tweet.length > 280;
   };
 
-  // Function to format tweet content with proper line breaks and structure
+  const handlePrevious = () => {
+    setCurrentIndex((prev) => (prev - 1 >= 0 ? prev - 1 : tweets.length - 1));
+  };
+
+  const handleNext = () => {
+    setCurrentIndex((prev) => (prev + 1 < tweets.length ? prev + 1 : 0));
+  };
+
+  const handleDotClick = (index: number) => {
+    setCurrentIndex(index);
+  };
+
   const formatTweetContent = (tweet: string) => {
     return tweet
       .split('\n')
       .map((line, index) => {
-        // Handle different types of formatting
         const trimmedLine = line.trim();
         
         if (!trimmedLine) {
           return <br key={index} />;
         }
         
-        // Handle bullet points
         if (trimmedLine.startsWith('•') || trimmedLine.startsWith('-') || trimmedLine.startsWith('→')) {
           return (
             <div key={index} className="ml-2 mb-1">
@@ -57,7 +75,6 @@ function TweetVariations({ tweets, selectedTweet, onSelectTweet }: TweetVariatio
           );
         }
         
-        // Handle numbered lists
         if (/^\d+[.)]\s/.test(trimmedLine)) {
           return (
             <div key={index} className="ml-2 mb-1">
@@ -66,7 +83,6 @@ function TweetVariations({ tweets, selectedTweet, onSelectTweet }: TweetVariatio
           );
         }
         
-        // Regular line
         return (
           <div key={index} className={index > 0 ? 'mt-2' : ''}>
             {trimmedLine}
@@ -75,44 +91,43 @@ function TweetVariations({ tweets, selectedTweet, onSelectTweet }: TweetVariatio
       });
   };
 
+  const currentTweet = tweets[currentIndex];
+
   return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold mb-4" style={{ color: '#FFFFFF' }}>
-        Generated Tweets
-      </h3>
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold" style={{ color: '#FFFFFF' }}>
+          Generated Tweets
+        </h3>
+      </div>
       
-      {tweets.map((tweet, index) => (
+      <div className="space-y-4">
+        {/* Tweet Card */}
         <div
-          key={index}
-          onClick={() => onSelectTweet(tweet)}
-          className="p-4 rounded-lg border cursor-pointer transition-all duration-200 hover:opacity-80"
+          className="rounded-xl border overflow-hidden shadow-lg transition-all duration-300 hover:translate-y-[-2px] hover:shadow-2xl"
           style={{
-            backgroundColor: selectedTweet === tweet ? '#3E3F41' : '#252628',
-            borderColor: selectedTweet === tweet ? '#5A5A5C' : '#3B3B3D',
-            borderWidth: selectedTweet === tweet ? '2px' : '1px'
+            backgroundColor: '#252628',
+            borderColor: '#3B3B3D',
+            transform: 'translateZ(0)', // Force GPU acceleration
           }}
         >
-          {/* Header */}
-          <div className="flex items-center justify-between mb-3">
-            <span 
-              className="text-sm font-medium px-2 py-1 rounded"
-              style={{ 
-                backgroundColor: '#161618',
-                color: '#B5B5B5'
-              }}
-            >
-              Tweet {index + 1}
-            </span>
-            
+          {/* Tweet Header */}
+          <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: '#3B3B3D' }}>
+            <div className="flex items-center gap-3">
+              <span 
+                className="text-sm"
+                style={{ color: '#B5B5B5' }}
+              >
+                Tweet {currentIndex + 1} of {tweets.length}
+              </span>
+            </div>
+
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleCopy(tweet, index);
-              }}
-              className="p-2 rounded-lg transition-colors hover:opacity-80"
+              onClick={(e) => handleCopy(currentTweet, currentIndex)}
+              className="p-2 rounded-lg transition-all duration-300 hover:opacity-80 hover:shadow-[0_0_10px_rgba(255,255,255,0.1)]"
               style={{ backgroundColor: '#161618' }}
             >
-              {copiedIndex === index ? (
+              {copiedIndex === currentIndex ? (
                 <Check className="h-4 w-4" style={{ color: '#22c55e' }} />
               ) : (
                 <Copy className="h-4 w-4" style={{ color: '#B5B5B5' }} />
@@ -120,24 +135,86 @@ function TweetVariations({ tweets, selectedTweet, onSelectTweet }: TweetVariatio
             </button>
           </div>
 
-          {/* Tweet Content with Proper Formatting */}
-          <div className="text-sm leading-relaxed mb-3" style={{ color: '#FFFFFF' }}>
-            {formatTweetContent(tweet)}
+          {/* Tweet Content */}
+          <div 
+            className="p-4 text-[15px] leading-normal" 
+            style={{ color: '#FFFFFF', minHeight: '144px' }}
+          >
+            {formatTweetContent(currentTweet)}
           </div>
 
-          {/* Character Count */}
-          <div className="flex justify-end">
-            <span 
-              className="text-xs"
-              style={{ 
-                color: isOverLimit(tweet) ? '#ef4444' : '#B5B5B5'
-              }}
-            >
-              {getCharacterCount(tweet)}/280
-            </span>
+          {/* Tweet Footer */}
+          <div className="px-4 py-3 border-t" style={{ borderColor: '#3B3B3D' }}>
+            <div className="flex justify-between items-center">
+              <span 
+                className="text-sm"
+                style={{ color: '#B5B5B5' }}
+              >
+                {getCharacterCount(currentTweet)}/280
+              </span>
+
+              <button
+                onClick={onGenerateMore}
+                className="px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-300 hover:opacity-90 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:translate-y-[-1px]"
+                style={{
+                  background: 'linear-gradient(45deg, #3E3F41, #252628)',
+                  color: '#FFFFFF',
+                  border: '1px solid #3B3B3D'
+                }}
+              >
+                Generate More
+              </button>
+            </div>
           </div>
         </div>
-      ))}
+
+        {/* Navigation Controls */}
+        <div className="flex items-center justify-between gap-4 px-4">
+          <button
+            onClick={handlePrevious}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 hover:opacity-90 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:translate-y-[-1px]"
+            style={{ 
+              backgroundColor: 'rgba(39, 40, 42, 0.95)',
+              backdropFilter: 'blur(8px)',
+              color: '#FFFFFF'
+            }}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            <span className="text-sm">Previous</span>
+          </button>
+
+          {/* Dots */}
+          <div className="flex items-center gap-1.5">
+            {tweets.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => handleDotClick(index)}
+                className="w-2 h-2 rounded-full transition-all duration-500"
+                style={{
+                  backgroundColor: currentIndex === index ? '#FFFFFF' : '#3B3B3D',
+                  transform: currentIndex === index ? 'scale(1.3)' : 'scale(1)',
+                  opacity: currentIndex === index ? '1' : '0.7',
+                  boxShadow: currentIndex === index ? '0 0 10px rgba(255,255,255,0.3)' : 'none',
+                }}
+                aria-label={`Go to tweet ${index + 1}`}
+              />
+            ))}
+          </div>
+
+          <button
+            onClick={handleNext}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 hover:opacity-90 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:translate-y-[-1px]"
+            style={{ 
+              backgroundColor: 'rgba(39, 40, 42, 0.95)',
+              backdropFilter: 'blur(8px)',
+              color: '#FFFFFF'
+            }}
+          >
+            <span className="text-sm">Next</span>
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

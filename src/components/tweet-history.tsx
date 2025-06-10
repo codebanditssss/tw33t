@@ -513,36 +513,38 @@ function TweetHistory({ isOpen, onClose }: TweetHistoryProps) {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="p-6 border-t" style={{ borderColor: '#3B3B3D' }}>
-              <div className="flex items-center justify-between">
-                <span className="text-sm" style={{ color: '#B5B5B5' }}>
-                  Page {currentPage} of {totalPages}
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                    disabled={currentPage === 1}
-                    className="flex items-center gap-1 px-3 py-1 rounded text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-80"
-                    style={{ 
-                      backgroundColor: '#3E3F41',
-                      color: '#B5B5B5'
-                    }}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                    Previous
-                  </button>
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                    disabled={currentPage === totalPages}
-                    className="flex items-center gap-1 px-3 py-1 rounded text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-80"
-                    style={{ 
-                      backgroundColor: '#3E3F41',
-                      color: '#B5B5B5'
-                    }}
-                  >
-                    Next
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
+            <div className="min-h-[67px]  items-center justify-center border-t" style={{ borderColor: '#3B3B3D' }}>
+              <div className="w-full px-3">
+                <div className="flex items-center justify-between gap-8">
+                  <span className="text-sm px-2" style={{ color: '#B5B5B5' }}>
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-80"
+                      style={{ 
+                        backgroundColor: '#3E3F41',
+                        color: '#B5B5B5'
+                      }}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-80"
+                      style={{ 
+                        backgroundColor: '#3E3F41',
+                        color: '#B5B5B5'
+                      }}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

@@ -11,183 +11,241 @@ import { useAuth } from '@/contexts/auth-context';
 import { useUsage } from '@/contexts/usage-context';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import LoadingScreen from '@/components/loading-screen';
+import { RepliesResultsSection } from "@/components/replies-results-section";
 
 type Mode = 'hero' | 'loading' | 'results';
 
 export default function Home() {
   const [mode, setMode] = useState<Mode>('hero');
+  const [currentType, setCurrentType] = useState<'tweet' | 'thread' | 'reply'>('tweet');
+  const [currentTopic, setCurrentTopic] = useState('');
+  const [currentTone, setCurrentTone] = useState('');
   const [generatedTweets, setGeneratedTweets] = useState<string[]>([]);
   const [generatedThreads, setGeneratedThreads] = useState<string[][]>([]);
-  const [selectedTweet, setSelectedTweet] = useState<string>('');
-  const [currentTopic, setCurrentTopic] = useState<string>('');
-  const [currentTone, setCurrentTone] = useState<string>('');
-  const [currentType, setCurrentType] = useState<'tweet' | 'thread'>('tweet');
-  const [progress, setProgress] = useState<{ percent: number; status: string }>({ percent: 0, status: '' });
-  const [hasShownSuccessToast, setHasShownSuccessToast] = useState(false);
+  const [generatedReplies, setGeneratedReplies] = useState<string[]>([]);
+  const [originalTweet, setOriginalTweet] = useState('');
+  const [selectedTweet, setSelectedTweet] = useState('');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [progress, setProgress] = useState({ percent: 0, text: '' });
   const { user } = useAuth();
-  const { refreshUsage } = useUsage();
+  const { usageStatus, refreshUsage } = useUsage();
   const searchParams = useSearchParams();
 
-  // Handle success return from payment
   useEffect(() => {
-    const success = searchParams.get('success');
-    const subscriptionId = searchParams.get('subscription_id');
-    
-    if (success === 'true' && user && !hasShownSuccessToast) {
-      console.log('Payment success detected, subscription ID:', subscriptionId);
-      toast.success('Payment successful! Your SuperTw33t subscription is now active.');
-      setHasShownSuccessToast(true);
-      
-      // Refresh usage to update the UI with a slight delay to allow webhook processing
-      setTimeout(() => {
-        refreshUsage();
-      }, 2000);
-      
-      // Clear the success parameter from URL to prevent re-triggering
-      const url = new URL(window.location.href);
-      url.searchParams.delete('success');
-      url.searchParams.delete('subscription_id');
-      url.searchParams.delete('status');
-      window.history.replaceState({}, '', url.toString());
-    }
-  }, [searchParams, user?.id, refreshUsage, hasShownSuccessToast]);
+    // Check for auth callback
+    const code = searchParams.get('code');
+    if (code && user?.id) {
+      const connectTwitter = async () => {
+        try {
+          const response = await fetch('/api/twitter/callback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code }),
+          });
 
-  const handleGenerate = async (
-    topic: string, 
-    tone: string, 
-    options?: {
-      type: 'tweet' | 'thread';
-      threadLength?: number;
-      threadStyle?: string;
+          if (!response.ok) {
+            throw new Error('Failed to connect Twitter');
+          }
+
+          await refreshUsage();
+          toast.success('Twitter connected successfully!');
+        } catch (error) {
+          console.error('Twitter connection error:', error);
+          toast.error('Failed to connect Twitter. Please try again.');
+        }
+      };
+
+      connectTwitter();
     }
-  ) => {
-    // Check if user is authenticated
+  }, [searchParams, user?.id, refreshUsage]);
+
+  const handleGenerate = async (topic: string, tone: string, options?: {
+    type: 'tweet' | 'thread' | 'reply';
+    threadLength?: number;
+    threadStyle?: string;
+    originalTweet?: string;
+  }) => {
     if (!user) {
       setIsAuthModalOpen(true);
-      toast.info('Please sign up or log in to generate tweets');
       return;
     }
 
+    if (!usageStatus?.canGenerate) {
+      toast.error(`Usage limit reached. You've used ${usageStatus?.currentUsage}/${usageStatus?.limit} tweets this month. Upgrade for more!`);
+      return;
+    }
+
+    setMode('loading');
     setCurrentTopic(topic);
     setCurrentTone(tone);
     setCurrentType(options?.type || 'tweet');
-    setMode('loading');
-    setProgress({ percent: 0, status: 'Starting...' });
+    
+    if (options?.type === 'reply' && options.originalTweet) {
+      setOriginalTweet(options.originalTweet);
+    }
 
     try {
-      // Get auth token if user is logged in
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
+      setProgress({ percent: 20, text: 'Analyzing prompt...' });
 
-      if (user) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.access_token) {
-          headers['Authorization'] = `Bearer ${session.access_token}`;
-        }
+      let response;
+      if (options?.type === 'thread') {
+        response = await fetch('/api/generate-thread', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            topic,
+            tone,
+            length: options.threadLength,
+            style: options.threadStyle
+          }),
+        });
+      } else if (options?.type === 'reply') {
+        response = await fetch('/api/generate-replies', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            topic,
+            tone,
+            originalTweet: options.originalTweet
+          }),
+        });
+      } else {
+        response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic, tone }),
+        });
       }
-
-      // Choose the appropriate API endpoint
-      const endpoint = options?.type === 'thread' ? '/api/generate-thread' : '/api/generate';
-      
-      const requestBody = options?.type === 'thread' 
-        ? { 
-            topic, 
-            tone, 
-            threadLength: options.threadLength || 8,
-            threadStyle: options.threadStyle || 'story'
-          }
-        : { topic, tone };
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(requestBody),
-      });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        const errorMessage = errorData?.error || `Failed to generate ${options?.type || 'tweets'}`;
-        
-        // If it's an authentication error, show the auth modal
-        if (response.status === 401) {
-          setIsAuthModalOpen(true);
-          toast.error('Please sign up or log in to generate tweets');
-          setMode('hero');
-          return;
-        }
-        
-        throw new Error(errorMessage);
+        throw new Error('Failed to generate content');
       }
+
+      setProgress({ percent: 60, text: 'Generating content...' });
+
+      const data = await response.json();
+
+      setProgress({ percent: 90, text: 'Finalizing...' });
 
       if (options?.type === 'thread') {
-        // Handle thread generation (no streaming yet)
-        const data = await response.json();
-        setGeneratedThreads(data.threads || []);
-        setGeneratedTweets([]); // Clear tweets when showing threads
-        setMode('results');
-        // Refresh usage after successful generation
-        if (user) {
-          await refreshUsage();
-        }
+        setGeneratedThreads([data.threads]);
+      } else if (options?.type === 'reply') {
+        setGeneratedReplies(data.replies);
       } else {
-        // Handle streaming response for tweets
-        const reader = response.body?.getReader();
-        if (!reader) throw new Error('No response body');
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          // Convert the chunk to text
-          const chunk = new TextDecoder().decode(value);
-          const lines = chunk.split('\n').filter(line => line.trim());
-
-          for (const line of lines) {
-            try {
-              const data = JSON.parse(line);
-              
-              if (data.error) {
-                // Handle error from stream
-                toast.error(data.error);
-                setMode('hero');
-                return; // Exit the function completely
-              }
-              
-              if (data.progress !== undefined) {
-                setProgress({ 
-                  percent: data.progress,
-                  status: data.status
-                });
-                
-                // If we got the final tweets
-                if (data.status.startsWith('{')) {
-                  const finalData = JSON.parse(data.status);
-                  if (finalData.tweets) {
-                    setGeneratedTweets(finalData.tweets);
-                    setSelectedTweet(finalData.tweets[0] || '');
-                    setGeneratedThreads([]);
-                    setMode('results');
-                    // Refresh usage after successful generation
-                    if (user) {
-                      await refreshUsage();
-                    }
-                  }
-                }
-              }
-            } catch (e) {
-              console.error('Error parsing chunk:', e);
-              // If it's a JSON parse error, it might be an incomplete chunk, continue
-              continue;
-            }
-          }
-        }
+        setGeneratedTweets(data.tweets);
+        setSelectedTweet(data.tweets[0]);
       }
+
+      setProgress({ percent: 100, text: 'Done!' });
+      setMode('results');
+
+      // Save to history
+      const { error } = await supabase
+        .from(options?.type === 'reply' ? 'replies' : options?.type === 'thread' ? 'threads' : 'tweets')
+        .insert([
+          {
+            user_id: user.id,
+            prompt: topic,
+            tone,
+            content: JSON.stringify(options?.type === 'thread' ? data.threads : options?.type === 'reply' ? data.replies : data.tweets),
+            ...(options?.type === 'reply' && { original_tweet: options.originalTweet }),
+            type: options?.type || 'tweet'
+          }
+        ]);
+
+      if (error) {
+        console.error('Error saving to history:', error);
+        toast.error('Failed to save to history. Please try again.');
+      }
+
+      // Refresh usage after successful generation
+      await refreshUsage();
+
     } catch (error) {
-      console.error('Error generating content:', error);
-      toast.error(`Error generating ${options?.type || 'tweets'}`);
+      console.error('Generation error:', error);
+      toast.error('Failed to generate content. Please try again.');
       setMode('hero');
+    }
+  };
+
+  const handleGenerateMore = async () => {
+    if (!usageStatus?.canGenerate) {
+      toast.error(`Usage limit reached. You've used ${usageStatus?.currentUsage}/${usageStatus?.limit} tweets this month. Upgrade for more!`);
+      return;
+    }
+
+    try {
+      let response;
+      if (currentType === 'thread') {
+        response = await fetch('/api/generate-thread', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            topic: currentTopic,
+            tone: currentTone,
+            length: 8,
+            style: 'story'
+          }),
+        });
+      } else if (currentType === 'reply') {
+        response = await fetch('/api/generate-replies', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            topic: currentTopic,
+            tone: currentTone,
+            originalTweet
+          }),
+        });
+      } else {
+        response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            topic: currentTopic,
+            tone: currentTone
+          }),
+        });
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to generate more content');
+      }
+
+      const data = await response.json();
+
+      if (currentType === 'thread') {
+        setGeneratedThreads(prev => [...prev, data.threads]);
+      } else if (currentType === 'reply') {
+        setGeneratedReplies(prev => [...prev, ...data.replies]);
+      } else {
+        setGeneratedTweets(prev => [...prev, ...data.tweets]);
+      }
+
+      // Save to history
+      const { error } = await supabase
+        .from(currentType === 'thread' ? 'threads' : 'tweets')
+        .insert([
+          {
+            user_id: user!.id,
+            prompt: currentTopic,
+            tone: currentTone,
+            content: JSON.stringify(currentType === 'thread' ? data.threads : data.tweets),
+            type: currentType
+          }
+        ]);
+
+      if (error) {
+        console.error('Error saving to history:', error);
+      }
+
+      // Refresh usage after successful generation
+      await refreshUsage();
+
+    } catch (error) {
+      console.error('Generation error:', error);
+      toast.error('Failed to generate more content. Please try again.');
     }
   };
 
@@ -195,19 +253,15 @@ export default function Home() {
     setSelectedTweet(tweet);
   };
 
-  const handleGenerateMore = () => {
-    setMode('hero');
-    setGeneratedTweets([]);
-    setGeneratedThreads([]);
-    setSelectedTweet('');
-    setProgress({ percent: 0, status: '' });
-  };
-
   const getLoadingText = () => {
-    if (currentType === 'thread') {
-      return `Creating ${currentTone} thread about "${currentTopic}"`;
+    switch (currentType) {
+      case 'thread':
+        return `Creating ${currentTone} thread about "${currentTopic}"`;
+      case 'reply':
+        return `Creating ${currentTone} replies to the tweet`;
+      default:
+        return `Creating ${currentTone} tweets about "${currentTopic}"`;
     }
-    return `Creating ${currentTone} tweets about "${currentTopic}"`;
   };
 
   return (
@@ -223,49 +277,10 @@ export default function Home() {
           )}
           
           {mode === 'loading' && (
-            <div className="text-center max-w-md w-full px-4">
-              {/* Progress Container */}
-              <div className="relative mb-8">
-                {/* Background Bar */}
-                <div className="h-1.5 bg-[#2a2a2d] rounded-full overflow-hidden">
-                  {/* Progress Bar */}
-                  <div 
-                    className="h-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-300 ease-out"
-                    style={{ width: `${progress.percent}%` }}
-                  />
-                </div>
-                
-                {/* Percentage Text */}
-                <div className="absolute -top-6 transform -translate-x-1/2 text-sm font-medium text-blue-400"
-                     style={{ left: `${progress.percent}%`, minWidth: '40px' }}>
-                  {progress.percent}%
-                </div>
-              </div>
-
-              {/* Status Text */}
-              <h3 className="text-2xl font-semibold mb-3" style={{ color: '#FFFFFF' }}>
-                {progress.status}
-              </h3>
-              
-              {/* Context Text */}
-              <p className="text-base" style={{ color: '#B5B5B5' }}>
-                {getLoadingText()}
-              </p>
-
-              {/* Animated Dots */}
-              <div className="flex items-center justify-center gap-1 mt-6">
-                {[0, 1, 2].map((i) => (
-                  <div
-                    key={i}
-                    className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"
-                    style={{
-                      animationDelay: `${i * 200}ms`,
-                      opacity: 0.6
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
+            <LoadingScreen 
+              progress={progress.percent}
+              prompt={getLoadingText()}
+            />
           )}
           
           {mode === 'results' && (
@@ -273,6 +288,12 @@ export default function Home() {
               {currentType === 'thread' ? (
                 <ThreadResultsSection
                   threads={generatedThreads}
+                  onGenerateMore={handleGenerateMore}
+                />
+              ) : currentType === 'reply' ? (
+                <RepliesResultsSection
+                  originalTweet={originalTweet}
+                  replies={generatedReplies}
                   onGenerateMore={handleGenerateMore}
                 />
               ) : (

@@ -131,7 +131,6 @@ export async function canUserGenerate(userId: string): Promise<{
 }> {
   return getUserUsageStatus(userId);
 }
-
 // Increment usage count
 export async function incrementUsage(userId: string): Promise<void> {
   const monthYear = getCurrentMonth();
@@ -181,3 +180,4 @@ export async function incrementUsage(userId: string): Promise<void> {
   const cacheKey = `${userId}-${monthYear}`;
   usageCache.delete(cacheKey);
 } 
+

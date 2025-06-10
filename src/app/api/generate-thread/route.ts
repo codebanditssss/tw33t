@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { canUserGenerate, incrementUsage } from '@/lib/usage';
 
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-if (!DEEPSEEK_API_KEY) {
-  console.warn('DEEPSEEK_API_KEY is not set. Thread generation will not work.');
+if (!OPENAI_API_KEY) {
+  console.warn('OPENAI_API_KEY is not set. Thread generation will not work.');
 }
 
 // Initialize Supabase only if keys are available
@@ -96,7 +96,7 @@ const parseThreadContent = (content: string, expectedLength: number): string[] =
 };
 
 export async function POST(request: NextRequest) {
-  if (!DEEPSEEK_API_KEY) {
+  if (!OPENAI_API_KEY) {
     return NextResponse.json(
       { error: 'Thread generation is not configured' },
       { status: 500 }
@@ -183,14 +183,14 @@ export async function POST(request: NextRequest) {
     const threadPromises = Array.from({ length: 3 }, async (_, index) => {
       const prompt = getThreadPrompt(topic, tone, threadLength, threadStyle);
       
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'deepseek/deepseek-r1',
+          model: 'gpt-3.5-turbo',
           messages: [
             {
               role: 'user',
@@ -203,14 +203,14 @@ export async function POST(request: NextRequest) {
       });
 
       if (!response.ok) {
-        throw new Error(`DeepSeek API error: ${response.status}`);
+        throw new Error(`OpenAI API error: ${response.status}`);
       }
 
       const data = await response.json();
       const content = data.choices[0]?.message?.content;
 
       if (!content) {
-        throw new Error('No content received from DeepSeek API');
+        throw new Error('No content received from OpenAI API');
       }
 
       // Simple parsing - just split by "---"
