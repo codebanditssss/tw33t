@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { X, User, Shield, Palette, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
-import { supabase } from '@/lib/supabase';
+import { getBrowserClient } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 
@@ -20,6 +20,7 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const { user, signOut } = useAuth();
   const router = useRouter();
+  const supabase = getBrowserClient();
 
   const [formData, setFormData] = useState({
     fullName: user?.user_metadata?.full_name || '',
@@ -76,30 +77,77 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         throw new Error('No user logged in');
       }
 
-      // Get user's tweet generations and their associated tweets
-      const { data: generations, error: generationsError } = await supabase
-        .from('tweet_generations')
-        .select(`
-          id,
-          topic,
-          tone,
-          created_at,
-          generated_tweets (
-            id,
-            content,
-            character_count,
-            position,
-            is_favorited,
-            is_copied
-          )
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      // Get user's tweets, threads, and replies
+      const [
+        { data: tweetData, error: tweetError },
+        { data: threadData, error: threadError },
+        { data: replyData, error: replyError }
+      ] = await Promise.all([
+        supabase
+          .from('tweet_history')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('thread_history')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('reply_history')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+      ]);
 
-      if (generationsError) {
-        console.error('Error fetching generations:', generationsError);
+      if (tweetError) {
+        console.error('Error fetching tweets:', tweetError);
         throw new Error('Failed to fetch tweet history');
       }
+      if (threadError) {
+        console.error('Error fetching threads:', threadError);
+        throw new Error('Failed to fetch thread history');
+      }
+      if (replyError) {
+        console.error('Error fetching replies:', replyError);
+        throw new Error('Failed to fetch reply history');
+      }
+
+      // Process tweets
+      const processedTweets = (tweetData || []).map(tweet => ({
+        id: tweet.id,
+        type: 'tweet',
+        topic: tweet.prompt,
+        tone: tweet.tone,
+        created_at: tweet.created_at,
+        content: typeof tweet.content === 'string' ? JSON.parse(tweet.content) : tweet.content,
+        is_favorite: tweet.is_favorite || false
+      }));
+
+      // Process threads
+      const processedThreads = (threadData || []).map(thread => ({
+        id: thread.id,
+        type: 'thread',
+        topic: thread.prompt,
+        tone: thread.tone,
+        created_at: thread.created_at,
+        content: typeof thread.content === 'string' ? JSON.parse(thread.content) : thread.content,
+        thread_length: thread.thread_length,
+        thread_style: thread.thread_style,
+        is_favorite: thread.is_favorite || false
+      }));
+
+      // Process replies
+      const processedReplies = (replyData || []).map(reply => ({
+        id: reply.id,
+        type: 'reply',
+        topic: reply.prompt,
+        tone: reply.tone,
+        created_at: reply.created_at,
+        content: typeof reply.content === 'string' ? JSON.parse(reply.content) : reply.content,
+        original_tweet: reply.original_tweet,
+        is_favorite: reply.is_favorite || false
+      }));
 
       // Prepare the export data
       const exportData = {
@@ -109,17 +157,11 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           twitter: user.user_metadata?.twitter_username || '',
           joined: user.created_at
         },
-        generations: generations?.map(gen => ({
-          id: gen.id,
-          topic: gen.topic,
-          tone: gen.tone,
-          created_at: gen.created_at,
-          tweets: gen.generated_tweets?.map(tweet => ({
-            content: tweet.content,
-            is_favorited: tweet.is_favorited,
-            created_at: gen.created_at
-          })) || []
-        })) || []
+        history: [
+          ...processedTweets,
+          ...processedThreads,
+          ...processedReplies
+        ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       };
 
       // Create and download file

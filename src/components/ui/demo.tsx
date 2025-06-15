@@ -8,6 +8,7 @@ import {
 import { ToneSelector } from "@/components/ui/tone-selector";
 import { ThreadControls } from "@/components/ui/thread-controls";
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 
 interface ChatInputDemoProps {
 	onGenerate?: (topic: string, tone: string, options?: {
@@ -21,7 +22,6 @@ interface ChatInputDemoProps {
 
 function ChatInputDemo({ onGenerate, selectedTab = "Tweets" }: ChatInputDemoProps) {
 	const [value, setValue] = useState("");
-	const [originalTweet, setOriginalTweet] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
 	const [selectedTone, setSelectedTone] = useState("professional");
 	const [threadLength, setThreadLength] = useState(8);
@@ -37,17 +37,7 @@ function ChatInputDemo({ onGenerate, selectedTab = "Tweets" }: ChatInputDemoProp
 		"A step-by-step guide to mastering your craft"
 	];
 
-	const replyPlaceholders = [
-		"What's your thoughtful response to this tweet?",
-		"Share your perspective on this topic",
-		"Add value to this conversation",
-		"What insights can you contribute?",
-		"How would you engage with this tweet?",
-		"What's your take on this discussion?"
-	];
-
 	const [threadPlaceholderIndex, setThreadPlaceholderIndex] = useState(0);
-	const [replyPlaceholderIndex, setReplyPlaceholderIndex] = useState(0);
 
 	// Rotate placeholders every 3 seconds
 	useEffect(() => {
@@ -55,10 +45,6 @@ function ChatInputDemo({ onGenerate, selectedTab = "Tweets" }: ChatInputDemoProp
 		if (selectedTab === "Threads") {
 			interval = setInterval(() => {
 				setThreadPlaceholderIndex((prev) => (prev + 1) % threadPlaceholders.length);
-			}, 3000);
-		} else if (selectedTab === "Replies") {
-			interval = setInterval(() => {
-				setReplyPlaceholderIndex((prev) => (prev + 1) % replyPlaceholders.length);
 			}, 3000);
 		}
 		return () => clearInterval(interval);
@@ -79,7 +65,7 @@ function ChatInputDemo({ onGenerate, selectedTab = "Tweets" }: ChatInputDemoProp
 			} else if (selectedTab === "Replies") {
 				onGenerate(value.trim(), selectedTone, {
 					type: 'reply',
-					originalTweet: originalTweet || value.trim()
+					originalTweet: value.trim()
 				});
 			} else {
 				onGenerate(value.trim(), selectedTone, {
@@ -98,8 +84,8 @@ function ChatInputDemo({ onGenerate, selectedTab = "Tweets" }: ChatInputDemoProp
 
 	return (
 		<div className="w-full space-y-8">
-			{/* Tone Selector */}
-			<div className="px-1">
+			{/* Tone Selector - Only visible for tweets and replies */}
+			<div className={`px-1 transition-all duration-300 ${!isThreadMode ? 'h-auto opacity-100' : 'h-0 opacity-0 overflow-hidden'}`}>
 				<ToneSelector 
 					onToneChange={(tone, newPlaceholder) => {
 						setSelectedTone(tone);
@@ -118,29 +104,7 @@ function ChatInputDemo({ onGenerate, selectedTab = "Tweets" }: ChatInputDemoProp
 				</div>
 			</div>
 
-			{/* Original Tweet Input - Only visible for replies */}
-			{isReplyMode && (
-				<div className="px-1">
-					<div className="space-y-2">
-						<label className="block text-sm font-medium text-gray-400">
-							Original Tweet
-						</label>
-						<ChatInput
-							variant="default"
-							value={originalTweet}
-							onChange={(e) => setOriginalTweet(e.target.value)}
-							className="backdrop-blur-md"
-							placeholder="Paste or type the tweet you want to reply to..."
-						>
-							<div className="relative">
-								<ChatInputTextArea />
-							</div>
-						</ChatInput>
-					</div>
-				</div>
-			)}
-			
-			{/* Main Input */}
+			{/* Single Input Box */}
 			<ChatInput
 				variant="default"
 				value={value}
@@ -153,7 +117,7 @@ function ChatInputDemo({ onGenerate, selectedTab = "Tweets" }: ChatInputDemoProp
 					isThreadMode 
 						? threadPlaceholders[threadPlaceholderIndex]
 						: isReplyMode
-							? replyPlaceholders[replyPlaceholderIndex]
+							? "Paste or type the tweet you want to reply to..."
 							: placeholder
 				}
 			>

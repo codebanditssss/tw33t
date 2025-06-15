@@ -108,6 +108,7 @@ Format each reply as a complete, ready-to-post tweet.`;
     // Increment usage
     await incrementUsage(user.id);
 
+    // Return the generated replies
     return NextResponse.json({
       success: true,
       replies

@@ -1,10 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
-
-// Use service role key for usage operations to bypass RLS
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getServerClient } from './supabase';
 
 // Plan limits
 export const PLAN_LIMITS = {
@@ -34,7 +28,7 @@ export function getCurrentMonth(): string {
 
 // Get user's current plan
 export async function getUserPlan(userId: string) {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getServerClient()
     .from('user_subscriptions')
     .select('plan_type, status')
     .eq('user_id', userId)
@@ -48,78 +42,102 @@ export async function getUserPlan(userId: string) {
   return data;
 }
 
-// Get current month usage for user
-export async function getCurrentUsage(userId: string) {
-  const monthYear = getCurrentMonth();
-  
-  const { data, error } = await supabaseAdmin
-    .from('monthly_usage')
-    .select('tweets_generated')
-    .eq('user_id', userId)
-    .eq('month_year', monthYear)
-    .single();
-
-  if (error || !data) {
-    // No usage record for this month, return 0
-    return { tweets_generated: 0 };
-  }
-
-  return data;
+interface UsageRecord {
+  id: string;
+  user_id: string;
+  amount: number;
+  created_at: string;
 }
 
-// Optimized function to get both plan and usage in a single operation
-export async function getUserUsageStatus(userId: string): Promise<{
+// Get current month usage for user
+export async function getCurrentUsage(userId: string) {
+  try {
+    const supabase = getServerClient();
+  
+    const { data, error } = await supabase
+      .from('usage_history')
+      .select()
+    .eq('user_id', userId)
+    .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
+      .returns<UsageRecord[]>();
+
+    if (error) {
+      console.error('Error fetching usage:', error);
+      return { tweets_generated: 0 };
+    }
+
+    const totalUsage = (data || []).reduce((sum, record) => sum + record.amount, 0);
+    return { tweets_generated: totalUsage };
+  } catch (error) {
+    console.error('Error in getCurrentUsage:', error);
+    return { tweets_generated: 0 };
+  }
+}
+
+interface UsageStatus {
   canGenerate: boolean;
   currentUsage: number;
   limit: number;
   planType: string;
-}> {
-  // Check cache first
-  const cacheKey = `${userId}-${getCurrentMonth()}`;
-  const cached = usageCache.get(cacheKey);
-  
-  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-    return cached.data;
+}
+
+// Optimized function to get both plan and usage in a single operation
+export async function getUserUsageStatus(userId: string): Promise<UsageStatus> {
+  try {
+    const supabase = getServerClient();
+
+    // Get plan and usage data in parallel for better performance
+    const [planResult, usageResult] = await Promise.all([
+      supabase
+        .from('user_subscriptions')
+        .select('plan_type, status')
+        .eq('user_id', userId)
+        .single(),
+      supabase
+        .from('usage_history')
+        .select()
+        .eq('user_id', userId)
+        .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
+        .returns<UsageRecord[]>()
+    ]);
+
+    // Handle any errors
+    if (planResult.error && planResult.error.code !== 'PGRST116') {
+      console.error('Error fetching subscription:', planResult.error);
+      throw planResult.error;
+    }
+
+    if (usageResult.error) {
+      console.error('Error fetching usage:', usageResult.error);
+      throw usageResult.error;
+    }
+
+    // Determine plan type and limit
+    const planType = planResult.data?.plan_type || 'free';
+    const isSubscriptionActive = planResult.data?.status === 'active';
+    const effectivePlanType = isSubscriptionActive && planType ? planType : 'free';
+    const limit = PLAN_LIMITS[effectivePlanType as keyof typeof PLAN_LIMITS];
+    
+    // Calculate total usage from all records
+    const currentUsage = (usageResult.data || []).reduce((sum, record) => sum + record.amount, 0);
+
+    return {
+      canGenerate: currentUsage < limit,
+      currentUsage,
+      limit,
+      planType: effectivePlanType as string
+    };
+
+  } catch (error) {
+    console.error('Error in getUserUsageStatus:', error);
+    // Return free plan limits on error
+    return {
+      canGenerate: true,
+      currentUsage: 0,
+      limit: PLAN_LIMITS.free,
+      planType: 'free'
+    };
   }
-
-  const monthYear = getCurrentMonth();
-  
-  // Get plan and usage data in parallel for better performance
-  const [planResult, usageResult] = await Promise.all([
-    supabaseAdmin
-      .from('user_subscriptions')
-      .select('plan_type, status')
-      .eq('user_id', userId)
-      .single(),
-    supabaseAdmin
-      .from('monthly_usage')
-      .select('tweets_generated')
-      .eq('user_id', userId)
-      .eq('month_year', monthYear)
-      .single()
-  ]);
-
-  // Handle plan data
-  const planType = planResult.data?.plan_type || 'free';
-  const limit = PLAN_LIMITS[planType as keyof typeof PLAN_LIMITS];
-  
-  // Handle usage data
-  const currentUsage = usageResult.data?.tweets_generated || 0;
-  
-  const result = {
-    canGenerate: currentUsage < limit,
-    currentUsage,
-    limit,
-    planType
-  };
-
-  // Cache the result
-  usageCache.set(cacheKey, {
-    data: result,
-    timestamp: Date.now()
-  });
-
-  return result;
 }
 
 // Check if user can generate tweets (legacy function for backward compatibility)
@@ -131,53 +149,35 @@ export async function canUserGenerate(userId: string): Promise<{
 }> {
   return getUserUsageStatus(userId);
 }
-// Increment usage count
-export async function incrementUsage(userId: string): Promise<void> {
-  const monthYear = getCurrentMonth();
-  
-  // First, try to get existing record
-  const { data: currentData } = await supabaseAdmin
-    .from('monthly_usage')
-    .select('tweets_generated')
-    .eq('user_id', userId)
-    .eq('month_year', monthYear)
-    .single();
 
-  if (currentData) {
-    // Record exists, increment it
-    const newCount = currentData.tweets_generated + 1;
+// No need for incrementUserUsage since we're tracking usage through tweet_history table directly 
+
+// Increment usage for user
+export async function incrementUsage(userId: string, amount: number = 1) {
+  try {
+    const supabase = getServerClient();
     
-    const { error: updateError } = await supabaseAdmin
-      .from('monthly_usage')
-      .update({
-        tweets_generated: newCount,
-        updated_at: new Date().toISOString()
-      })
-      .eq('user_id', userId)
-      .eq('month_year', monthYear);
-
-    if (updateError) {
-      console.error('Failed to increment usage:', updateError);
-      throw new Error('Failed to update usage count');
-    }
-  } else {
-    // Record doesn't exist, create new one with count 1
-    const { error: insertError } = await supabaseAdmin
-      .from('monthly_usage')
+    // Insert a new usage record with required fields
+    const { error } = await supabase
+      .from('usage_history')
       .insert({
         user_id: userId,
-        month_year: monthYear,
-        tweets_generated: 1
+        amount,
+        created_at: new Date().toISOString()
       });
 
-    if (insertError) {
-      console.error('Failed to create usage record:', insertError);
-      throw new Error('Failed to create usage record');
+    if (error) {
+      console.error('Error incrementing usage:', error);
+      throw error;
     }
-  }
 
-  // Invalidate cache after incrementing usage
-  const cacheKey = `${userId}-${monthYear}`;
-  usageCache.delete(cacheKey);
-} 
+    // Clear cache for this user
+    usageCache.delete(userId);
+    
+    return true;
+  } catch (error) {
+    console.error('Error in incrementUsage:', error);
+    throw error;
+  }
+}
 

@@ -10,11 +10,31 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/auth-context';
 import { useUsage } from '@/contexts/usage-context';
 import { useSearchParams } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { getBrowserClient } from '@/lib/supabase';
 import LoadingScreen from '@/components/loading-screen';
 import { RepliesResultsSection } from "@/components/replies-results-section";
+import { getUserUsageStatus, incrementUsage } from '@/lib/usage';
 
 type Mode = 'hero' | 'loading' | 'results';
+
+interface HistoryBaseData {
+  user_id: string;
+  prompt: string;
+  tone: string;
+  content: string;
+  created_at: string;
+  type: 'tweet' | 'thread' | 'reply';
+}
+
+interface ReplyHistoryData extends HistoryBaseData {
+  original_tweet: string;
+}
+
+interface UsageStatus {
+  canGenerate: boolean;
+  currentUsage: number;
+  limit: number;
+}
 
 export default function Home() {
   const [mode, setMode] = useState<Mode>('hero');
@@ -28,9 +48,10 @@ export default function Home() {
   const [selectedTweet, setSelectedTweet] = useState('');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [progress, setProgress] = useState({ percent: 0, text: '' });
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { usageStatus, refreshUsage } = useUsage();
   const searchParams = useSearchParams();
+  const supabase = getBrowserClient();
 
   useEffect(() => {
     // Check for auth callback
@@ -92,18 +113,23 @@ export default function Home() {
       if (options?.type === 'thread') {
         response = await fetch('/api/generate-thread', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`
+          },
           body: JSON.stringify({
             topic,
-            tone,
-            length: options.threadLength,
-            style: options.threadStyle
+            threadLength: options.threadLength,
+            threadStyle: options.threadStyle
           }),
         });
       } else if (options?.type === 'reply') {
         response = await fetch('/api/generate-replies', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`
+          },
           body: JSON.stringify({
             topic,
             tone,
@@ -113,23 +139,139 @@ export default function Home() {
       } else {
         response = await fetch('/api/generate', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ topic, tone }),
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`
+          },
+          body: JSON.stringify({ prompt: topic, tone }),
         });
       }
 
       if (!response.ok) {
-        throw new Error('Failed to generate content');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to generate content');
       }
 
       setProgress({ percent: 60, text: 'Generating content...' });
 
       const data = await response.json();
+      console.log('API Response:', data); // Debug log
+
+      // Validate response format based on type
+      if (options?.type === 'thread') {
+        if (!data.threads || !Array.isArray(data.threads) || data.threads.length === 0) {
+          console.error('Invalid thread response:', data);
+          throw new Error('Failed to generate thread: Invalid response format');
+        }
+      } else if (options?.type === 'reply') {
+        if (!data.replies || !Array.isArray(data.replies)) {
+          console.error('Invalid reply response:', data);
+          throw new Error('Failed to generate replies: Invalid response format');
+        }
+      } else if (!data.tweets || !Array.isArray(data.tweets)) {
+        console.error('Invalid tweet response:', data);
+        throw new Error('Failed to generate tweets: Invalid response format');
+      }
 
       setProgress({ percent: 90, text: 'Finalizing...' });
 
+      // Save to history
+      const tableName = `${options?.type || 'tweet'}_history`;
+      
+      // Debug logs
+      console.log('Table name:', tableName);
+      console.log('Content type:', options?.type || 'tweet');
+
+      let contentToSave;
       if (options?.type === 'thread') {
-        setGeneratedThreads([data.threads]);
+        // For threads, we expect an array of arrays
+        contentToSave = data.threads;
+        if (!Array.isArray(contentToSave[0])) {
+          // If the first item is not an array, wrap everything in an array
+          contentToSave = [contentToSave];
+        }
+      } else if (options?.type === 'reply') {
+        // For replies, we expect an array of strings
+        contentToSave = data.replies;
+        if (!Array.isArray(contentToSave)) {
+          contentToSave = [contentToSave];
+        }
+      } else {
+        contentToSave = data.tweets;
+      }
+
+      // Debug log
+      console.log('Raw content to save:', contentToSave);
+
+      // Ensure content is properly formatted
+      if (options?.type === 'thread') {
+        // Thread content should be an array of arrays
+        contentToSave = Array.isArray(contentToSave) && Array.isArray(contentToSave[0])
+          ? contentToSave
+          : [Array.isArray(contentToSave) ? contentToSave : [contentToSave]];
+      } else if (options?.type === 'reply') {
+        // Reply content should be an array of strings
+        contentToSave = Array.isArray(contentToSave) ? contentToSave : [contentToSave];
+      } else {
+        // Regular tweets should be an array of strings
+        contentToSave = Array.isArray(contentToSave) ? contentToSave : [contentToSave];
+      }
+
+      // Debug log
+      console.log('Formatted content to save:', contentToSave);
+
+      // Validate required fields for replies
+      if (options?.type === 'reply' && !options.originalTweet) {
+        throw new Error('Original tweet is required for replies');
+      }
+
+      const historyData = {
+        user_id: user.id,
+        prompt: topic,
+        tone: options?.type === 'thread' ? options.threadStyle : tone,
+        content: contentToSave,
+        ...(options?.type === 'reply' && { original_tweet: options.originalTweet }),
+        ...(options?.type === 'thread' && { 
+          thread_length: options.threadLength,
+          thread_style: options.threadStyle
+        })
+      };
+
+      // Debug log
+      console.log('History data:', historyData);
+
+      try {
+        const { data: savedData, error: saveError } = await supabase
+          .from(tableName)
+          .insert(historyData)
+          .select()
+          .single();
+
+        if (saveError) {
+          console.error('Error saving to history. Details:', {
+            error: saveError,
+            errorMessage: saveError.message,
+            errorCode: saveError.code,
+            details: saveError.details,
+            hint: saveError.hint,
+            table: tableName,
+            data: JSON.stringify(historyData, null, 2)
+          });
+          toast.error(`Failed to save to history: ${saveError.message || 'Unknown error'}`);
+        } else {
+          console.log('Successfully saved to history:', savedData);
+        }
+      } catch (saveError) {
+        console.error('Unexpected error in history save operation:', saveError);
+        if (saveError instanceof Error) {
+          toast.error(`Failed to save to history: ${saveError.message}`);
+        } else {
+          toast.error('Failed to save to history due to an unexpected error');
+        }
+      }
+
+      if (options?.type === 'thread') {
+        setGeneratedThreads(data.threads);
       } else if (options?.type === 'reply') {
         setGeneratedReplies(data.replies);
       } else {
@@ -140,113 +282,70 @@ export default function Home() {
       setProgress({ percent: 100, text: 'Done!' });
       setMode('results');
 
-      // Save to history
-      const { error } = await supabase
-        .from(options?.type === 'reply' ? 'replies' : options?.type === 'thread' ? 'threads' : 'tweets')
-        .insert([
-          {
-            user_id: user.id,
-            prompt: topic,
-            tone,
-            content: JSON.stringify(options?.type === 'thread' ? data.threads : options?.type === 'reply' ? data.replies : data.tweets),
-            ...(options?.type === 'reply' && { original_tweet: options.originalTweet }),
-            type: options?.type || 'tweet'
-          }
-        ]);
+      // Increment usage after successful generation
+      try {
+        const usageAmount = options?.type === 'thread' ? options.threadLength : 1;
+        console.log('Incrementing usage:', {
+          amount: usageAmount,
+          type: options?.type || 'tweet',
+          hasSession: !!session,
+          hasAccessToken: !!session?.access_token
+        });
 
-      if (error) {
-        console.error('Error saving to history:', error);
-        toast.error('Failed to save to history. Please try again.');
+        const response = await fetch('/api/usage/increment', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`
+          },
+          body: JSON.stringify({ amount: usageAmount })
+        });
+
+        const data = await response.json().catch(error => {
+          console.error('Failed to parse usage response:', error);
+          return { error: 'Invalid response from server' };
+        });
+
+        if (!response.ok) {
+          console.error('Usage increment failed:', {
+            status: response.status,
+            statusText: response.statusText,
+            data
+          });
+          throw new Error(data.error || `Failed to update usage count (${response.status})`);
+        }
+
+        console.log('Usage increment successful:', data);
+        await refreshUsage();
+      } catch (usageError) {
+        console.error('Error incrementing usage:', {
+          error: usageError,
+          message: usageError instanceof Error ? usageError.message : 'Unknown error',
+          hasSession: !!session,
+          hasAccessToken: !!session?.access_token
+        });
+        toast.error(usageError instanceof Error ? usageError.message : 'Failed to update usage count');
       }
-
-      // Refresh usage after successful generation
-      await refreshUsage();
 
     } catch (error) {
       console.error('Generation error:', error);
-      toast.error('Failed to generate content. Please try again.');
+      toast.error(error instanceof Error ? error.message : 'Failed to generate content. Please try again.');
       setMode('hero');
     }
   };
 
   const handleGenerateMore = async () => {
-    if (!usageStatus?.canGenerate) {
-      toast.error(`Usage limit reached. You've used ${usageStatus?.currentUsage}/${usageStatus?.limit} tweets this month. Upgrade for more!`);
-      return;
-    }
-
-    try {
-      let response;
-      if (currentType === 'thread') {
-        response = await fetch('/api/generate-thread', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            topic: currentTopic,
-            tone: currentTone,
-            length: 8,
-            style: 'story'
-          }),
-        });
-      } else if (currentType === 'reply') {
-        response = await fetch('/api/generate-replies', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            topic: currentTopic,
-            tone: currentTone,
-            originalTweet
-          }),
-        });
-      } else {
-        response = await fetch('/api/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            topic: currentTopic,
-            tone: currentTone
-          }),
-        });
-      }
-
-      if (!response.ok) {
-        throw new Error('Failed to generate more content');
-      }
-
-      const data = await response.json();
-
-      if (currentType === 'thread') {
-        setGeneratedThreads(prev => [...prev, data.threads]);
-      } else if (currentType === 'reply') {
-        setGeneratedReplies(prev => [...prev, ...data.replies]);
-      } else {
-        setGeneratedTweets(prev => [...prev, ...data.tweets]);
-      }
-
-      // Save to history
-      const { error } = await supabase
-        .from(currentType === 'thread' ? 'threads' : 'tweets')
-        .insert([
-          {
-            user_id: user!.id,
-            prompt: currentTopic,
-            tone: currentTone,
-            content: JSON.stringify(currentType === 'thread' ? data.threads : data.tweets),
-            type: currentType
-          }
-        ]);
-
-      if (error) {
-        console.error('Error saving to history:', error);
-      }
-
-      // Refresh usage after successful generation
-      await refreshUsage();
-
-    } catch (error) {
-      console.error('Generation error:', error);
-      toast.error('Failed to generate more content. Please try again.');
-    }
+    // Reset all states and return to landing page
+    setMode('hero');
+    setCurrentTopic('');
+    setCurrentTone('');
+    setCurrentType('tweet');
+    setGeneratedTweets([]);
+    setGeneratedThreads([]);
+    setGeneratedReplies([]);
+    setOriginalTweet('');
+    setSelectedTweet('');
+    setProgress({ percent: 0, text: '' });
   };
 
   const handleSelectTweet = (tweet: string) => {
@@ -318,3 +417,4 @@ export default function Home() {
     </div>
   );
 }
+

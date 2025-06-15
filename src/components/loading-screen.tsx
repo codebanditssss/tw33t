@@ -57,6 +57,7 @@ function LoadingScreen({ progress, prompt }: LoadingScreenProps) {
                   src="/icons/tw33t-logo.png"
                   alt="tw33t logo"
                   fill
+                  sizes="(max-width: 768px) 85vw, (max-width: 1200px) 85vw, 85vw"
                   className="object-contain"
                   priority
                 />

@@ -18,8 +18,8 @@ if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KE
 }
 
 // Thread-specific prompts for different styles
-const getThreadPrompt = (topic: string, tone: string, threadLength: number, threadStyle: string) => {
-  const baseInstructions = `Create a Twitter thread about "${topic}" in a ${tone} tone with exactly ${threadLength} tweets.`;
+const getThreadPrompt = (topic: string, threadLength: number, threadStyle: string) => {
+  const baseInstructions = `Create a Twitter thread about "${topic}" with exactly ${threadLength} tweets. Separate each tweet with "---" and ensure each tweet is under 280 characters.`;
   
   const styleInstructions = {
     story: `Create a compelling narrative thread that tells a complete story. Start with a hook, build tension or interest through the middle tweets, and end with a satisfying conclusion or insight. Use storytelling techniques like setting, conflict, and resolution.`,
@@ -33,66 +33,33 @@ const getThreadPrompt = (topic: string, tone: string, threadLength: number, thre
     analysis: `Create an analytical thread that provides a deep dive into the topic. Break down different aspects, provide insights, examine causes and effects, and offer thoughtful analysis. Use data, examples, and logical reasoning to support your points.`
   };
 
-  const formatInstructions = `
-FORMATTING RULES:
-- Write ${threadLength} complete, well-formatted tweets
-- Start the first tweet with 🧵 and include "1/${threadLength}:" 
-- Number each subsequent tweet as "2/${threadLength}:", "3/${threadLength}:", etc.
-- Each tweet should be under 280 characters including the numbering
-- Use proper formatting with line breaks between sections
-- Use bullet points (•), arrows (→), or numbered lists (1. 2. 3.) for lists
-- Add blank lines between different sections within a tweet
-- Make each tweet visually appealing and easy to scan
-- Ensure smooth flow between tweets
-- End with a strong conclusion or call-to-action
-- Separate each tweet with "---" on its own line
-
-Example format:
-🧵 1/${threadLength}: Here's why [topic] matters:
-
-Key insight that hooks the reader
-
-Let's dive in 👇
----
-2/${threadLength}: First key point with proper structure:
-
-• Bullet point 1
-• Bullet point 2  
-• Bullet point 3
-
-This creates better readability.
----
-3/${threadLength}: Second important insight:
-
-→ Arrow point 1
-→ Arrow point 2
-→ Arrow point 3
----
-${threadLength}/${threadLength}: Final thoughts:
-
-Strong conclusion with clear takeaway.
-
-What's your experience with this?
-
-Return exactly ${threadLength} tweets separated by "---"`;
-
-  return `${baseInstructions}
-
-${styleInstructions[threadStyle as keyof typeof styleInstructions] || styleInstructions.story}
-
-${formatInstructions}`;
+  return `${baseInstructions}\n\n${styleInstructions[threadStyle as keyof typeof styleInstructions]}\n\nFormat each tweet as a complete, ready-to-post tweet. Separate tweets with "---". Do not include numbers or labels.`;
 };
 
 // Simple function to split and clean thread content
 const parseThreadContent = (content: string, expectedLength: number): string[] => {
-  // Split by separator and clean up
-  const tweets = content
+  // First try splitting by "---"
+  let tweets = content
     .split('---')
     .map((tweet: string) => tweet.trim())
-    .filter((tweet: string) => tweet.length > 0)
-    .slice(0, expectedLength); // Ensure we don't exceed expected length
-
-  return tweets;
+    .filter((tweet: string) => tweet.length > 0);
+  
+  // If that didn't work, try splitting by newlines and filtering
+  if (tweets.length < expectedLength) {
+    tweets = content
+      .split('\n')
+      .map((tweet: string) => tweet.trim())
+      .filter((tweet: string) => 
+        tweet.length > 0 && 
+        !tweet.startsWith('Tweet') && 
+        !tweet.startsWith('-') &&
+        !tweet.match(/^\d+[\.)]/));
+  }
+  
+  // Ensure we have the right number of tweets and they're within length limits
+  return tweets
+    .filter((tweet: string) => tweet.length <= 280)
+    .slice(0, expectedLength);
 };
 
 export async function POST(request: NextRequest) {
@@ -104,11 +71,29 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { topic, tone, threadLength = 8, threadStyle = 'story' } = await request.json();
+    const { topic, threadLength, threadStyle } = await request.json();
 
-    if (!topic || !tone) {
+    // Validate required fields
+    if (!topic || !threadLength || !threadStyle) {
       return NextResponse.json(
-        { error: 'Topic and tone are required' },
+        { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    // Validate thread length
+    if (threadLength < 2 || threadLength > 20) {
+      return NextResponse.json(
+        { error: 'Thread length must be between 2 and 20 tweets' },
+        { status: 400 }
+      );
+    }
+
+    // Validate thread style
+    const validStyles = ['story', 'educational', 'tips', 'personal', 'analysis'];
+    if (!validStyles.includes(threadStyle)) {
+      return NextResponse.json(
+        { error: 'Invalid thread style' },
         { status: 400 }
       );
     }
@@ -162,87 +147,82 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate thread length
-    if (threadLength < 2 || threadLength > 20) {
-      return NextResponse.json(
-        { error: 'Thread length must be between 2 and 20 tweets' },
-        { status: 400 }
-      );
-    }
-
-    // Validate thread style
-    const validStyles = ['story', 'educational', 'tips', 'personal', 'analysis'];
-    if (!validStyles.includes(threadStyle)) {
-      return NextResponse.json(
-        { error: 'Invalid thread style' },
-        { status: 400 }
-      );
-    }
-
     // Generate 3 different thread variations
     const threadPromises = Array.from({ length: 3 }, async (_, index) => {
-      const prompt = getThreadPrompt(topic, tone, threadLength, threadStyle);
+      const prompt = getThreadPrompt(topic, threadLength, threadStyle);
       
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages: [
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          temperature: 0.7 + (index * 0.1), // Slight variation for different threads
-          max_tokens: 2000,
-        }),
-      });
+      try {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-3.5-turbo',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are an expert at creating engaging Twitter threads that are properly formatted and follow Twitter\'s character limits.'
+              },
+              {
+                role: 'user',
+                content: prompt
+              }
+            ],
+            temperature: 0.7 + (index * 0.1), // Slight variation for different threads
+            max_tokens: 2000,
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            `OpenAI API error (${response.status}): ${
+              errorData.error?.message || errorData.error || response.statusText
+            }`
+          );
+        }
+
+        const data = await response.json();
+        const content = data.choices[0]?.message?.content;
+
+        if (!content) {
+          throw new Error('No content received from OpenAI API');
+        }
+
+        // Parse and validate the content
+        const parsedTweets = parseThreadContent(content, threadLength);
+        
+        if (parsedTweets.length < threadLength) {
+          throw new Error(`OpenAI returned insufficient tweets: got ${parsedTweets.length}, expected ${threadLength}`);
+        }
+
+        return parsedTweets;
+      } catch (error) {
+        console.error(`Error in thread variation ${index + 1}:`, error);
+        return null; // Return null for failed variations
       }
-
-      const data = await response.json();
-      const content = data.choices[0]?.message?.content;
-
-      if (!content) {
-        throw new Error('No content received from OpenAI API');
-      }
-
-      // Simple parsing - just split by "---"
-      return parseThreadContent(content, threadLength);
     });
 
-    const threads = await Promise.all(threadPromises);
+    const threads = (await Promise.all(threadPromises)).filter(Boolean) as string[][];
 
     // Validate that we have valid threads
     const validThreads = threads.filter(thread => 
       Array.isArray(thread) && 
       thread.length >= Math.min(2, threadLength) && 
-      thread.every(tweet => typeof tweet === 'string' && tweet.length > 20 && tweet.length <= 300) // Slightly more lenient
+      thread.every(tweet => typeof tweet === 'string' && tweet.length > 20 && tweet.length <= 280)
     );
 
     if (validThreads.length === 0) {
-      throw new Error('Failed to generate valid threads');
+      throw new Error('Failed to generate valid threads. Please try again with different parameters.');
     }
 
-    // Increment usage
-    try {
-      await incrementUsage(userId);
-      console.log('Thread generated and usage incremented for user:', userId);
-    } catch (usageError) {
-      console.warn('Usage increment failed, but continuing:', usageError);
-    }
-
+    // Return the generated threads without saving to history or incrementing usage
     return NextResponse.json({
       threads: validThreads,
       metadata: {
         topic,
-        tone,
         threadLength,
         threadStyle,
         generatedAt: new Date().toISOString()

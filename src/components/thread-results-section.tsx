@@ -16,21 +16,12 @@ function ThreadResultsSection({ threads, onGenerateMore }: ThreadResultsSectionP
   const [selectedTweetIndex, setSelectedTweetIndex] = useState(0);
   const [copiedTweetIndex, setCopiedTweetIndex] = useState<number | null>(null);
   const [copiedEntireThread, setCopiedEntireThread] = useState(false);
-  const [isLiked, setIsLiked] = useState(false);
-  const [isRetweeted, setIsRetweeted] = useState(false);
-  const [likeCount, setLikeCount] = useState(47);
-  const [retweetCount, setRetweetCount] = useState(12);
-  const [currentTime, setCurrentTime] = useState(new Date());
   const { user } = useAuth();
-
-  useEffect(() => {
-    // Update time every minute
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000);
-
-    return () => clearInterval(timer);
-  }, []);
+  const [currentTime] = useState(new Date());
+  const [isLiked, setIsLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
+  const [isRetweeted, setIsRetweeted] = useState(false);
+  const [retweetCount, setRetweetCount] = useState(0);
 
   const selectedThread = threads[selectedThreadIndex] || [];
   const selectedTweet = selectedThread[selectedTweetIndex] || '';
@@ -64,52 +55,6 @@ function ThreadResultsSection({ threads, onGenerateMore }: ThreadResultsSectionP
     }
   };
 
-  const formatTweetContent = (content: string) => {
-    return content.split(' ').map((word, index) => {
-      if (word.startsWith('#')) {
-        return (
-          <span
-            key={index}
-            className="text-[#1d9bf0] hover:underline cursor-pointer transition-colors duration-200"
-          >
-            {word}{' '}
-          </span>
-        );
-      }
-      if (word.includes('📸') || word.includes('💡')) {
-        return <span key={index} className="inline-block transform hover:scale-110 transition-transform duration-200">{word} </span>;
-      }
-      return word + ' ';
-      });
-  };
-
-  const getUserInfo = () => {
-    const twitterUsername = user?.user_metadata?.twitter_username;
-    const userName = twitterUsername || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
-    const userHandle = twitterUsername ? `@${twitterUsername}` : `@${user?.email?.split('@')[0] || 'user'}`;
-    return { userName, userHandle };
-  };
-
-  const { userName, userHandle } = getUserInfo();
-
-  const handlePreviousThread = () => {
-    setSelectedThreadIndex((prev) => (prev - 1 >= 0 ? prev - 1 : threads.length - 1));
-    setSelectedTweetIndex(0);
-  };
-
-  const handleNextThread = () => {
-    setSelectedThreadIndex((prev) => (prev + 1 < threads.length ? prev + 1 : 0));
-    setSelectedTweetIndex(0);
-  };
-
-  const handlePreviousTweet = () => {
-    setSelectedTweetIndex((prev) => (prev - 1 >= 0 ? prev - 1 : selectedThread.length - 1));
-  };
-
-  const handleNextTweet = () => {
-    setSelectedTweetIndex((prev) => (prev + 1 < selectedThread.length ? prev + 1 : 0));
-  };
-
   const handleLike = () => {
     setIsLiked(!isLiked);
     setLikeCount(prev => isLiked ? prev - 1 : prev + 1);
@@ -136,6 +81,32 @@ function ThreadResultsSection({ threads, onGenerateMore }: ThreadResultsSectionP
     const year = date.getFullYear();
     return `${month} ${day}, ${year}`;
   };
+
+  const getUserInfo = () => {
+    const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
+    const userHandle = `@${userName.toLowerCase().replace(/\s+/g, '')}`;
+    return { userName, userHandle };
+  };
+
+  const handlePreviousThread = () => {
+    setSelectedThreadIndex((prev) => (prev - 1 >= 0 ? prev - 1 : threads.length - 1));
+    setSelectedTweetIndex(0);
+  };
+
+  const handleNextThread = () => {
+    setSelectedThreadIndex((prev) => (prev + 1 < threads.length ? prev + 1 : 0));
+    setSelectedTweetIndex(0);
+  };
+
+  const handlePreviousTweet = () => {
+    setSelectedTweetIndex((prev) => (prev - 1 >= 0 ? prev - 1 : selectedThread.length - 1));
+  };
+
+  const handleNextTweet = () => {
+    setSelectedTweetIndex((prev) => (prev + 1 < selectedThread.length ? prev + 1 : 0));
+  };
+
+  const { userName, userHandle } = getUserInfo();
 
   return (
     <div className="w-full max-w-6xl mx-auto">
@@ -191,8 +162,8 @@ function ThreadResultsSection({ threads, onGenerateMore }: ThreadResultsSectionP
         <div className="min-w-[550px]">
           <div className="mb-4">
             <h3 className="text-lg font-semibold" style={{ color: '#FFFFFF' }}>
-            Thread Variations
-          </h3>
+              Thread Variations
+            </h3>
           </div>
 
           {/* Thread Navigation */}
@@ -212,36 +183,39 @@ function ThreadResultsSection({ threads, onGenerateMore }: ThreadResultsSectionP
               <div className="flex items-center gap-3">
                 <span className="text-sm" style={{ color: '#B5B5B5' }}>
                   Thread {selectedThreadIndex + 1} of {threads.length}
-                  </span>
-                </div>
-                    </div>
+                </span>
+              </div>
+            </div>
 
             {/* Thread Content */}
             <div className="p-4 text-[15px] leading-normal" style={{ color: '#FFFFFF', minHeight: '144px' }}>
               {/* First Tweet Preview */}
               <div className="line-clamp-2 mb-2">
-                {formatTweetContent(selectedThread[0] || '')}
-                  </div>
-                  
+                {selectedThread[0] || ''}
+              </div>
+              
               {/* Tweet Count */}
               <div className="text-sm text-center py-2" style={{ color: '#B5B5B5' }}>
                 {selectedThread.length} tweets in this thread
-                    </div>
-                  
+              </div>
+              
               {/* Last Tweet Preview */}
-                      <div className="line-clamp-2">
-                {formatTweetContent(selectedThread[selectedThread.length - 1] || '')}
-                      </div>
-                    </div>
+              <div className="line-clamp-2">
+                {selectedThread[selectedThread.length - 1] || ''}
+              </div>
+            </div>
 
             {/* Navigation Controls */}
             <div className="px-4 py-3 border-t" style={{ borderColor: '#3B3B3D' }}>
               <div className="flex items-center justify-between">
                 <button
                   onClick={handlePreviousThread}
-                  className="p-2 rounded-lg transition-all duration-300 hover:bg-white/5 hover:scale-110"
+                  className="p-1.5 rounded-lg transition-all duration-300 hover:text-white group"
+                  style={{ color: '#71767B' }}
                 >
-                  <ChevronLeft className="w-5 h-5" style={{ color: '#B5B5B5' }} />
+                  <ChevronLeft 
+                    className="w-4 h-4 transition-all duration-300 group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.8)] group-hover:drop-shadow-[0_0_12px_rgba(255,255,255,0.8)] group-hover:scale-125 group-hover:brightness-125" 
+                  />
                 </button>
 
                 {/* Thread Dots */}
@@ -255,7 +229,6 @@ function ThreadResultsSection({ threads, onGenerateMore }: ThreadResultsSectionP
                         backgroundColor: selectedThreadIndex === index ? '#FFFFFF' : '#3B3B3D',
                         transform: selectedThreadIndex === index ? 'scale(1.3)' : 'scale(1)',
                         opacity: selectedThreadIndex === index ? '1' : '0.7',
-                        boxShadow: selectedThreadIndex === index ? '0 0 10px rgba(255,255,255,0.3)' : 'none',
                       }}
                     />
                   ))}
@@ -263,12 +236,15 @@ function ThreadResultsSection({ threads, onGenerateMore }: ThreadResultsSectionP
 
                 <button
                   onClick={handleNextThread}
-                  className="p-2 rounded-lg transition-all duration-300 hover:bg-white/5 hover:scale-110"
+                  className="p-1.5 rounded-lg transition-all duration-300 hover:text-white group"
+                  style={{ color: '#71767B' }}
                 >
-                  <ChevronRight className="w-5 h-5" style={{ color: '#B5B5B5' }} />
+                  <ChevronRight 
+                    className="w-4 h-4 transition-all duration-300 group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.8)] group-hover:drop-shadow-[0_0_12px_rgba(255,255,255,0.8)] group-hover:scale-125 group-hover:brightness-125" 
+                  />
                 </button>
               </div>
-          </div>
+            </div>
           </motion.div>
         </div>
 
@@ -277,10 +253,10 @@ function ThreadResultsSection({ threads, onGenerateMore }: ThreadResultsSectionP
           <div className="mb-4">
             <h3 className="text-lg font-semibold" style={{ color: '#FFFFFF' }}>
               Tweet Preview
-          </h3>
+            </h3>
           </div>
                 
-                {/* Tweet Card */}
+          {/* Tweet Card */}
           <motion.div 
             className="rounded-xl overflow-hidden transition-all duration-300 hover:shadow-[0_0_20px_rgba(29,155,240,0.1)] relative"
             style={{ 
@@ -293,31 +269,31 @@ function ThreadResultsSection({ threads, onGenerateMore }: ThreadResultsSectionP
           >
             {/* Tweet Header */}
             <div className="p-4 flex items-start gap-3">
-                      <div 
+              <div 
                 className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-semibold cursor-pointer transition-transform duration-200 hover:scale-105"
                 style={{ 
                   backgroundColor: '#2F3336',
                   boxShadow: '0 0 10px rgba(255,255,255,0.1)'
                 }}
-                      >
-                        {userName.charAt(0).toUpperCase()}
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
+              >
+                {userName.charAt(0).toUpperCase()}
+              </div>
+              
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1 group">
                   <span className="font-bold text-white hover:underline cursor-pointer group-hover:text-[#1d9bf0] transition-colors duration-200">
-                            {userName}
-                          </span>
+                    {userName}
+                  </span>
                   <span className="text-[#71767B] group-hover:text-[#1d9bf0] transition-colors duration-200">{userHandle}</span>
                   <span className="text-[#71767B]">·</span>
                   <span className="text-[#71767B] hover:underline cursor-pointer">
                     {formatTime(currentTime)}
-                          </span>
+                  </span>
                 </div>
 
                 {/* Tweet Content */}
                 <div className="mt-1 mb-4 text-white text-[15px] leading-normal">
-                  {formatTweetContent(selectedTweet)}
+                  {selectedTweet}
                 </div>
 
                 {/* Tweet Details */}
@@ -326,8 +302,8 @@ function ThreadResultsSection({ threads, onGenerateMore }: ThreadResultsSectionP
                   <span className="mx-1">·</span>
                   <span className="hover:underline cursor-pointer hover:text-[#1d9bf0] transition-colors duration-200">
                     Twitter for Web
-                          </span>
-                        </div>
+                  </span>
+                </div>
 
                 {/* Tweet Stats */}
                 <div 
@@ -343,8 +319,8 @@ function ThreadResultsSection({ threads, onGenerateMore }: ThreadResultsSectionP
                   <span className="text-[#71767B] hover:underline cursor-pointer group transition-colors duration-200">
                     <strong className="text-white group-hover:text-[#F91880]">{likeCount}</strong> Likes
                   </span>
-                      </div>
-                      
+                </div>
+                
                 {/* Tweet Actions */}
                 <div className="flex justify-between mt-2">
                   <button className="group flex items-center gap-1 text-[#71767B] transition-colors duration-200 hover:text-[#1d9bf0]">
@@ -353,10 +329,10 @@ function ThreadResultsSection({ threads, onGenerateMore }: ThreadResultsSectionP
                     </div>
                   </button>
                   
-                      <button
+                  <button
                     onClick={handleRetweet}
                     className={`group flex items-center gap-1 transition-colors duration-200 ${isRetweeted ? 'text-[#00BA7C]' : 'text-[#71767B] hover:text-[#00BA7C]'}`}
-                      >
+                  >
                     <div className={`p-2 rounded-full transition-all duration-200 transform group-hover:scale-110 ${isRetweeted ? 'bg-[#00BA7C]/10' : 'group-hover:bg-[#00BA7C]/10'}`}>
                       <Repeat2 size={18} className="transition-all duration-200" />
                     </div>
@@ -397,23 +373,29 @@ function ThreadResultsSection({ threads, onGenerateMore }: ThreadResultsSectionP
               <div className="flex items-center justify-between">
                 <button
                   onClick={handlePreviousTweet}
-                  className="p-2 rounded-lg transition-all duration-300 hover:bg-[#1d9bf0]/10 hover:text-[#1d9bf0] hover:scale-110"
+                  className="p-1.5 rounded-lg transition-all duration-300 hover:text-white group"
+                  style={{ color: '#71767B' }}
                 >
-                  <ChevronLeft className="w-5 h-5" style={{ color: '#71767B' }} />
+                  <ChevronLeft 
+                    className="w-4 h-4 transition-all duration-300 group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.8)] group-hover:drop-shadow-[0_0_12px_rgba(255,255,255,0.8)] group-hover:scale-125 group-hover:brightness-125" 
+                  />
                 </button>
 
-                <span className="text-sm" style={{ color: '#71767B' }}>
+                <span className="text-xs" style={{ color: '#71767B' }}>
                   Tweet {selectedTweetIndex + 1} of {selectedThread.length}
                 </span>
 
                 <button
                   onClick={handleNextTweet}
-                  className="p-2 rounded-lg transition-all duration-300 hover:bg-[#1d9bf0]/10 hover:text-[#1d9bf0] hover:scale-110"
+                  className="p-1.5 rounded-lg transition-all duration-300 hover:text-white group"
+                  style={{ color: '#71767B' }}
                 >
-                  <ChevronRight className="w-5 h-5" style={{ color: '#71767B' }} />
+                  <ChevronRight 
+                    className="w-4 h-4 transition-all duration-300 group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.8)] group-hover:drop-shadow-[0_0_12px_rgba(255,255,255,0.8)] group-hover:scale-125 group-hover:brightness-125" 
+                  />
                 </button>
               </div>
-          </div>
+            </div>
 
             {/* Hover Overlay */}
             <div 

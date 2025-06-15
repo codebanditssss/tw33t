@@ -98,15 +98,15 @@ function TwitterPreview({ tweet }: TwitterPreviewProps) {
               boxShadow: '0 0 10px rgba(255,255,255,0.1)'
             }}
           >
-            L
+            {userName.charAt(0).toUpperCase()}
           </div>
           
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1 group">
               <span className="font-bold text-white hover:underline cursor-pointer group-hover:text-[#1d9bf0] transition-colors duration-200">
-                laziedev
+                {userName}
               </span>
-              <span className="text-[#71767B] group-hover:text-[#1d9bf0] transition-colors duration-200">@laziedev</span>
+              <span className="text-[#71767B] group-hover:text-[#1d9bf0] transition-colors duration-200">{userHandle}</span>
               <span className="text-[#71767B]">·</span>
               <span className="text-[#71767B] hover:underline cursor-pointer">
                 {formatTime(currentTime)}

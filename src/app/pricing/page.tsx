@@ -44,7 +44,7 @@ export default function PricingPage() {
   return (
     <>
       <Header />
-      <main className="min-h-screen" style={{ backgroundColor: '#1A1A1C' }}>
+      <main className="min-h-screen">
         <PricingSection />
       </main>
     </>
