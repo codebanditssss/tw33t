@@ -19,21 +19,21 @@ if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KE
 
 // Thread-specific prompts for different styles
 const getThreadPrompt = (topic: string, threadLength: number, threadStyle: string) => {
-  const baseInstructions = `Create a Twitter thread about "${topic}" with exactly ${threadLength} tweets. Separate each tweet with "---" and ensure each tweet is under 280 characters.`;
+  const baseInstructions = `Create a Twitter thread about "${topic}" with exactly ${threadLength} tweets. Each tweet should be a standalone message without any numbering or prefixes. Separate each tweet with "---" and ensure each tweet is under 280 characters.`;
   
   const styleInstructions = {
     story: `Create a compelling narrative thread that tells a complete story. Start with a hook, build tension or interest through the middle tweets, and end with a satisfying conclusion or insight. Use storytelling techniques like setting, conflict, and resolution.`,
     
     educational: `Create an educational thread that teaches something step by step. Break down complex concepts into digestible, easy-to-understand tweets. Each tweet should build upon the previous one, creating a clear learning progression. Use examples and analogies where helpful.`,
     
-    tips: `Create a practical tips thread with actionable advice. Each tweet should contain a specific, implementable tip or piece of advice. Use numbered lists, bullet points, and clear formatting. Focus on practical value the reader can immediately apply.`,
+    tips: `Create a practical tips thread with actionable advice. Each tweet should contain a specific, implementable tip or piece of advice. Use clear formatting. Focus on practical value the reader can immediately apply.`,
     
     personal: `Create a personal experience thread told in first-person. Share insights, lessons learned, or experiences in an authentic, relatable way. Use personal anecdotes and be vulnerable where appropriate. Make it feel like a genuine personal story.`,
     
     analysis: `Create an analytical thread that provides a deep dive into the topic. Break down different aspects, provide insights, examine causes and effects, and offer thoughtful analysis. Use data, examples, and logical reasoning to support your points.`
   };
 
-  return `${baseInstructions}\n\n${styleInstructions[threadStyle as keyof typeof styleInstructions]}\n\nFormat each tweet as a complete, ready-to-post tweet. Separate tweets with "---". Do not include numbers or labels.`;
+  return `${baseInstructions}\n\n${styleInstructions[threadStyle as keyof typeof styleInstructions]}\n\nFormat each tweet as a complete, ready-to-post tweet WITHOUT any numbering, prefixes, or labels. Just the pure content. Separate tweets with "---".`;
 };
 
 // Simple function to split and clean thread content

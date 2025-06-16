@@ -108,6 +108,29 @@ function ThreadResultsSection({ threads, onGenerateMore }: ThreadResultsSectionP
 
   const { userName, userHandle } = getUserInfo();
 
+  const formatTweetContent = (content: string, index: number, total: number) => {
+    // Remove any existing "Tweet X:" prefix if present
+    const cleanContent = content.replace(/^Tweet \d+:\s*/, '');
+    
+    // Just return the clean content without any prefix
+    return cleanContent.split(' ').map((word, i) => {
+      if (word.startsWith('#')) {
+        return (
+          <span
+            key={i}
+            className="text-[#1d9bf0] hover:underline cursor-pointer transition-colors duration-200"
+          >
+            {word}{' '}
+          </span>
+        );
+      }
+      if (word.includes('📸') || word.includes('💡')) {
+        return <span key={i} className="inline-block transform hover:scale-110 transition-transform duration-200">{word} </span>;
+      }
+      return word + ' ';
+    });
+  };
+
   return (
     <div className="w-full max-w-6xl mx-auto">
       {/* Header */}
@@ -182,7 +205,7 @@ function ThreadResultsSection({ threads, onGenerateMore }: ThreadResultsSectionP
             <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: '#3B3B3D' }}>
               <div className="flex items-center gap-3">
                 <span className="text-sm" style={{ color: '#B5B5B5' }}>
-                  Thread {selectedThreadIndex + 1} of {threads.length}
+                  🧵 Thread {selectedThreadIndex + 1} of {threads.length}
                 </span>
               </div>
             </div>
@@ -293,7 +316,7 @@ function ThreadResultsSection({ threads, onGenerateMore }: ThreadResultsSectionP
 
                 {/* Tweet Content */}
                 <div className="mt-1 mb-4 text-white text-[15px] leading-normal">
-                  {selectedTweet}
+                  {formatTweetContent(selectedTweet, selectedTweetIndex, selectedThread.length)}
                 </div>
 
                 {/* Tweet Details */}
@@ -381,7 +404,7 @@ function ThreadResultsSection({ threads, onGenerateMore }: ThreadResultsSectionP
                   />
                 </button>
 
-                <span className="text-xs" style={{ color: '#71767B' }}>
+                <span className="text-sm" style={{ color: '#71767B' }}>
                   Tweet {selectedTweetIndex + 1} of {selectedThread.length}
                 </span>
 

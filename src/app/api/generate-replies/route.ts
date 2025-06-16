@@ -103,7 +103,10 @@ Format each reply as a complete, ready-to-post tweet.`;
     const replies = content
       .split('\n')
       .filter(line => line.trim() && !line.startsWith('Reply') && !line.startsWith('-'))
-      .map(reply => reply.trim());
+      .map(reply => {
+        // Remove numbering (e.g., "1.", "2.", etc.) from the beginning of replies
+        return reply.trim().replace(/^\d+\.\s*/, '');
+      });
 
     // Increment usage
     await incrementUsage(user.id);

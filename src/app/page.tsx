@@ -53,34 +53,6 @@ export default function Home() {
   const searchParams = useSearchParams();
   const supabase = getBrowserClient();
 
-  useEffect(() => {
-    // Check for auth callback
-    const code = searchParams.get('code');
-    if (code && user?.id) {
-      const connectTwitter = async () => {
-        try {
-          const response = await fetch('/api/twitter/callback', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code }),
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to connect Twitter');
-          }
-
-          await refreshUsage();
-          toast.success('Twitter connected successfully!');
-        } catch (error) {
-          console.error('Twitter connection error:', error);
-          toast.error('Failed to connect Twitter. Please try again.');
-        }
-      };
-
-      connectTwitter();
-    }
-  }, [searchParams, user?.id, refreshUsage]);
-
   const handleGenerate = async (topic: string, tone: string, options?: {
     type: 'tweet' | 'thread' | 'reply';
     threadLength?: number;
