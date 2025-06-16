@@ -110,19 +110,19 @@ function TweetHistory({ isOpen, onClose }: TweetHistoryProps) {
         { data: replyData, error: replyError }
       ] = await Promise.all([
         supabase
-          .from('tweet_history')
-          .select('*')
-          .eq('user_id', user?.id)
+        .from('tweet_history')
+        .select('*')
+        .eq('user_id', user?.id)
           .order('created_at', { ascending: false }),
         supabase
-          .from('thread_history')
-          .select('*')
-          .eq('user_id', user?.id)
+        .from('thread_history')
+        .select('*')
+        .eq('user_id', user?.id)
           .order('created_at', { ascending: false }),
         supabase
-          .from('reply_history')
-          .select('*')
-          .eq('user_id', user?.id)
+        .from('reply_history')
+        .select('*')
+        .eq('user_id', user?.id)
           .order('created_at', { ascending: false })
       ]);
 
@@ -398,7 +398,7 @@ function TweetHistory({ isOpen, onClose }: TweetHistoryProps) {
   const toggleExpanded = async (generationId: string) => {
     const generation = generations.find(g => g.id === generationId);
     if (!generation) return;
-
+    
     // First toggle the expanded state
     setExpandedGenerations(prev => {
       const newSet = new Set(prev);
@@ -506,7 +506,7 @@ function TweetHistory({ isOpen, onClose }: TweetHistoryProps) {
             <div key={index} className="bg-[#161618] p-3 rounded">
               <p className="text-[#71767B] text-sm mb-2">Reply {index + 1}:</p>
               <p className="text-white text-sm">{typeof reply === 'string' ? reply : reply.content}</p>
-            </div>
+          </div>
           ))}
         </div>
       );
@@ -762,14 +762,14 @@ function TweetHistory({ isOpen, onClose }: TweetHistoryProps) {
                         {generation.type === 'reply' 
                           ? `Reply to: ${generation.original_tweet}`
                           : Array.isArray(generation.content) 
-                            ? (Array.isArray(generation.content[0]) 
-                                ? generation.content[0][0] 
-                                : typeof generation.content[0] === 'string'
-                                  ? generation.content[0]
-                                  : generation.content[0]?.content)
-                            : typeof generation.content === 'string'
-                              ? generation.content
-                              : generation.content?.content}
+                          ? (Array.isArray(generation.content[0]) 
+                              ? generation.content[0][0] 
+                              : typeof generation.content[0] === 'string'
+                                ? generation.content[0]
+                                : generation.content[0]?.content)
+                          : typeof generation.content === 'string'
+                            ? generation.content
+                            : generation.content?.content}
                       </p>
 
                       {isExpanded && (

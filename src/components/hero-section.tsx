@@ -82,7 +82,7 @@ function HeroSection({ onGenerate }: HeroSectionProps) {
   return (
     <div className="min-h-[calc(100vh-80px)] flex flex-col">
       {/* Fixed spacing from header */}
-      <div className="h-20" />
+      <div className="h-32" />
       
       {/* Content container */}
       <div className="flex-1 flex items-start justify-center">
@@ -93,14 +93,14 @@ function HeroSection({ onGenerate }: HeroSectionProps) {
           animate="visible"
         >
           <motion.div 
-            className="w-full max-w-md mx-auto mb-8"
+            className="w-full max-w-md mx-auto mb-12"
             variants={itemVariants}
           >
             <TwitterTabs onTabChange={setSelectedTab} defaultTab="Tweets" />
           </motion.div>
           
           <motion.div 
-            className="text-center space-y-2.5 w-full mb-8"
+            className="text-center space-y-2.5 w-full mb-10"
             variants={itemVariants}
           >
             <h1 className="text-[2.75rem] leading-[1.2] font-semibold">

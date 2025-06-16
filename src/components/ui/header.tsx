@@ -20,7 +20,7 @@ function Header() {
 
   if (loading) {
     return (
-      <header className="w-full sticky top-0 z-50 backdrop-blur-sm bg-black/5">
+      <header className="w-full" style={{ borderColor: '#3B3B3D' }}>
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center">
             <div className="w-24 h-8 rounded bg-gray-700 animate-pulse"></div>
@@ -35,7 +35,7 @@ function Header() {
 
   return (
     <>
-      <header className="w-full sticky top-0 z-50 backdrop-blur-sm bg-black/5">
+      <header className="w-full" style={{ borderColor: '#3B3B3D' }}>
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-4">
