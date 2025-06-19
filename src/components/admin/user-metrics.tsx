@@ -23,6 +23,11 @@ export function UserMetrics() {
 
   useEffect(() => {
     fetchMetrics();
+    
+    // Refresh metrics every 30 seconds for real-time data
+    const interval = setInterval(fetchMetrics, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const fetchMetrics = async () => {
