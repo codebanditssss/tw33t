@@ -36,10 +36,10 @@ export async function GET(request: NextRequest) {
       // Total users using admin API
       supabase.auth.admin.listUsers(),
       
-      // Pro users (active subscriptions)
+      // Pro users (unique users with active pro subscriptions)
       supabase
         .from('user_subscriptions')
-        .select('user_id', { count: 'exact', head: true })
+        .select('user_id')
         .eq('status', 'active')
         .eq('plan_type', 'pro'),
       
@@ -89,9 +89,27 @@ export async function GET(request: NextRequest) {
     );
     const activeUsers = activeUserIds.size;
 
-    // Calculate final metrics
-    const proUsers = proUsersResult.count || 0;
-    const freeUsers = totalUsers - proUsers;
+    // Calculate unique pro users
+    const uniqueProUserIds = new Set(
+      (proUsersResult.data || []).map(record => record.user_id)
+    );
+    const proUsers = uniqueProUserIds.size;
+    
+    // Ensure free users calculation doesn't go negative
+    // This handles cases where subscription data might be inconsistent
+    const freeUsers = Math.max(0, totalUsers - proUsers);
+    
+    // Debug logging to understand the data
+    console.log('Debug metrics:', {
+      totalUsers,
+      proUsers,
+      freeUsers,
+      calculatedFree: totalUsers - proUsers,
+      proSubscriptions: proUsersResult.data?.length || 0,
+      uniqueProUsers: uniqueProUserIds.size,
+      allUserIds: allUsers.map(u => u.id).slice(0, 3), // First 3 user IDs for debug
+      proUserIds: Array.from(uniqueProUserIds).slice(0, 3) // First 3 pro user IDs for debug
+    });
 
     return NextResponse.json({
       success: true,
