@@ -97,7 +97,7 @@ function AuthModal({ isOpen, onClose, defaultTab = 'login' }: AuthModalProps) {
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-full transition-colors hover:opacity-80"
+          className="absolute top-4 right-4 p-2 rounded-full transition-colors hover:opacity-80 cursor-pointer"
           style={{ color: '#B5B5B5' }}
         >
           <X className="h-5 w-5" />
@@ -121,7 +121,7 @@ function AuthModal({ isOpen, onClose, defaultTab = 'login' }: AuthModalProps) {
           <button
             onClick={() => setActiveTab('login')}
             className={`
-              flex-1 py-2.5 px-4 text-sm font-medium rounded-md transition-all duration-300
+              flex-1 py-2.5 px-4 text-sm font-medium rounded-md transition-all duration-300 cursor-pointer
               ${activeTab === 'login' ? 'relative overflow-hidden' : ''}
             `}
             style={{
@@ -154,7 +154,7 @@ function AuthModal({ isOpen, onClose, defaultTab = 'login' }: AuthModalProps) {
           <button
             onClick={() => setActiveTab('signup')}
             className={`
-              flex-1 py-2.5 px-4 text-sm font-medium rounded-md transition-all duration-300
+              flex-1 py-2.5 px-4 text-sm font-medium rounded-md transition-all duration-300 cursor-pointer
               ${activeTab === 'signup' ? 'relative overflow-hidden' : ''}
             `}
             style={{

@@ -98,7 +98,7 @@ export function UsageProvider({ children }: { children: ReactNode }) {
 
   const refreshUsage = useCallback(async () => {
     await fetchUsage();
-  }, []);
+  }, [user?.id, session?.access_token]);
 
   // Fetch usage when user or session changes
   useEffect(() => {

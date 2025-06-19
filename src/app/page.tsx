@@ -53,6 +53,30 @@ export default function Home() {
   const searchParams = useSearchParams();
   const supabase = getBrowserClient();
 
+  // Handle payment success URL parameters
+  useEffect(() => {
+    const success = searchParams.get('success');
+    const subscriptionId = searchParams.get('subscription_id');
+    const status = searchParams.get('status');
+
+    if (success === 'true' && subscriptionId && status === 'active') {
+      // Show success message
+              toast.success('🎉 Payment successful! Your Super plan is now active with 500 credits/month!');
+      
+      // Refresh usage status to reflect the new plan
+      refreshUsage();
+      
+      // Clean up URL parameters after a short delay
+      setTimeout(() => {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('success');
+        url.searchParams.delete('subscription_id');
+        url.searchParams.delete('status');
+        window.history.replaceState({}, '', url.toString());
+      }, 2000);
+    }
+  }, [searchParams, refreshUsage]);
+
   const handleGenerate = async (topic: string, tone: string, options?: {
     type: 'tweet' | 'thread' | 'reply';
     threadLength?: number;
@@ -65,7 +89,7 @@ export default function Home() {
     }
 
     if (!usageStatus?.canGenerate) {
-      toast.error(`Usage limit reached. You've used ${usageStatus?.currentUsage}/${usageStatus?.limit} tweets this month. Upgrade for more!`);
+              toast.error(`Usage limit reached. You've used ${usageStatus?.currentUsage}/${usageStatus?.limit} credits this month. Upgrade for more!`);
       return;
     }
 
@@ -256,7 +280,7 @@ export default function Home() {
 
       // Increment usage after successful generation
       try {
-        const usageAmount = options?.type === 'thread' ? options.threadLength : 1;
+        const usageAmount = options?.type === 'thread' ? options.threadLength : 5;
         console.log('Incrementing usage:', {
           amount: usageAmount,
           type: options?.type || 'tweet',
@@ -288,6 +312,9 @@ export default function Home() {
         }
 
         console.log('Usage increment successful:', data);
+        
+        // Add a small delay to ensure database consistency before refreshing
+        await new Promise(resolve => setTimeout(resolve, 500));
         await refreshUsage();
       } catch (usageError) {
         console.error('Error incrementing usage:', {

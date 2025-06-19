@@ -40,7 +40,7 @@ export function SubscriptionModal({ isOpen, onClose }: SubscriptionModalProps) {
           {/* CTA Button */}
           <button
             onClick={onClose}
-            className="w-full mt-0.5 bg-white text-gray-900 rounded-sm text-[6px] font-medium hover:bg-gray-100 transition-colors"
+            className="w-full mt-0.5 bg-white text-gray-900 rounded-sm text-[6px] font-medium hover:bg-gray-100 transition-colors cursor-pointer"
           >
             Go Super
           </button>

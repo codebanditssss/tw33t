@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     const usageStatus = await getUserUsageStatus(user.id);
     if (!usageStatus.canGenerate) {
       return NextResponse.json(
-        { error: 'Usage limit reached' },
+        { error: 'Usage limit reached. You have insufficient credits.' },
         { status: 403 }
       );
     }
