@@ -1,6 +1,7 @@
 import { UserMetrics } from '@/components/admin/user-metrics';
 import { UsageAnalytics } from '@/components/admin/usage-analytics';
 import { SystemHealth } from '@/components/admin/system-health';
+import { ContentAnalytics } from '@/components/admin/content-analytics';
 
 export default function AdminDashboard() {
   return (
@@ -23,9 +24,10 @@ export default function AdminDashboard() {
         <UsageAnalytics />
       </div>
 
-      {/* Bottom Row - System Health (Full Width) */}
-      <div className="grid grid-cols-1 gap-6">
+      {/* Bottom Row - System Health and Content Analytics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <SystemHealth />
+        <ContentAnalytics />
       </div>
     </div>
   );

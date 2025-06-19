@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getCurrentUserAdmin } from '@/lib/admin';
 import { ReactNode } from 'react';
 import Link from 'next/link';
-import { BarChart3, Users } from 'lucide-react';
+import { BarChart3, Users, TrendingUp } from 'lucide-react';
 
 export default async function AdminLayout({
   children,
@@ -40,6 +40,13 @@ export default async function AdminLayout({
                 >
                   <BarChart3 className="w-4 h-4" />
                   <span>Dashboard</span>
+                </Link>
+                <Link 
+                  href="/admin/analytics" 
+                  className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
+                >
+                  <TrendingUp className="w-4 h-4" />
+                  <span>Analytics</span>
                 </Link>
                 <Link 
                   href="/admin/users" 
