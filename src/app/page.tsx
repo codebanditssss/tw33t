@@ -53,15 +53,16 @@ export default function Home() {
   const searchParams = useSearchParams();
   const supabase = getBrowserClient();
 
-  // Handle payment success URL parameters
+  // Handle URL parameters (payment success, errors, etc.)
   useEffect(() => {
     const success = searchParams.get('success');
     const subscriptionId = searchParams.get('subscription_id');
     const status = searchParams.get('status');
+    const error = searchParams.get('error');
 
     if (success === 'true' && subscriptionId && status === 'active') {
       // Show success message
-              toast.success('🎉 Payment successful! Your Super plan is now active with 500 credits/month!');
+      toast.success('🎉 Payment successful! Your Super plan is now active with 500 credits/month!');
       
       // Refresh usage status to reflect the new plan
       refreshUsage();
@@ -74,6 +75,18 @@ export default function Home() {
         url.searchParams.delete('status');
         window.history.replaceState({}, '', url.toString());
       }, 2000);
+    }
+
+    // Handle unauthorized error from admin redirect
+    if (error === 'unauthorized') {
+      toast.error('Access denied. Admin privileges required.');
+      
+      // Clean up URL parameter
+      setTimeout(() => {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('error');
+        window.history.replaceState({}, '', url.toString());
+      }, 1000);
     }
   }, [searchParams, refreshUsage]);
 
