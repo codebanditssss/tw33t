@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUserAdmin } from '@/lib/admin';
 import { ReactNode } from 'react';
+import Link from 'next/link';
+import { BarChart3, Users } from 'lucide-react';
 
 export default async function AdminLayout({
   children,
@@ -21,14 +23,32 @@ export default async function AdminLayout({
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#161618' }}>
-      {/* Simple admin header */}
+      {/* Admin header with navigation */}
       <header className="border-b border-gray-800 bg-gray-900/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
+            <div className="flex items-center space-x-8">
               <h1 className="text-xl font-semibold text-white">
                 TWT-LAB Admin
               </h1>
+              
+              {/* Navigation */}
+              <nav className="flex space-x-6">
+                <Link 
+                  href="/admin" 
+                  className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  <span>Dashboard</span>
+                </Link>
+                <Link 
+                  href="/admin/users" 
+                  className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
+                >
+                  <Users className="w-4 h-4" />
+                  <span>Users</span>
+                </Link>
+              </nav>
             </div>
             <div className="text-sm text-gray-400">
               {user.email}
