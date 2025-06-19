@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Search, Users, Crown, User, Calendar, Activity } from 'lucide-react';
+import { UserDetailModal } from '@/components/admin/user-detail-modal';
 
 interface UserData {
   id: string;
@@ -20,6 +21,8 @@ export default function UserManagement() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPlan, setFilterPlan] = useState<'all' | 'free' | 'pro'>('all');
+  const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -83,6 +86,20 @@ export default function UserManagement() {
     if (diffInHours < 24) return `${Math.floor(diffInHours)}h ago`;
     if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`;
     return formatDate(dateString);
+  };
+
+  const handleViewUser = (user: UserData) => {
+    setSelectedUser(user);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedUser(null);
+  };
+
+  const handleUserUpdated = () => {
+    fetchUsers(); // Refresh the user list
   };
 
   if (loading) {
@@ -239,7 +256,7 @@ export default function UserManagement() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <button
-                      onClick={() => {/* TODO: Implement user details modal */}}
+                      onClick={() => handleViewUser(user)}
                       className="text-blue-400 hover:text-blue-300 font-medium"
                     >
                       View Details
@@ -265,6 +282,14 @@ export default function UserManagement() {
           </div>
         )}
       </div>
+
+      {/* User Detail Modal */}
+      <UserDetailModal
+        user={selectedUser}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onUserUpdated={handleUserUpdated}
+      />
     </div>
   );
 } 
