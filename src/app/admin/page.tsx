@@ -1,4 +1,6 @@
 import { UserMetrics } from '@/components/admin/user-metrics';
+import { UsageAnalytics } from '@/components/admin/usage-analytics';
+import { SystemHealth } from '@/components/admin/system-health';
 
 export default function AdminDashboard() {
   return (
@@ -12,21 +14,18 @@ export default function AdminDashboard() {
         </p>
       </div>
 
-      {/* Metrics Grid */}
+      {/* Top Row - User Metrics and Usage Analytics */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* User Metrics */}
         <UserMetrics />
 
-        {/* System Status */}
-        <div className="bg-gray-800/50 rounded-lg p-6 border border-gray-700">
-          <h3 className="text-lg font-semibold text-white mb-4">
-            System Status
-          </h3>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-green-400 rounded-full"></div>
-            <span className="text-green-400">System Online</span>
-          </div>
-        </div>
+        {/* Usage Analytics */}
+        <UsageAnalytics />
+      </div>
+
+      {/* Bottom Row - System Health (Full Width) */}
+      <div className="grid grid-cols-1 gap-6">
+        <SystemHealth />
       </div>
     </div>
   );
