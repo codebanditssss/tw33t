@@ -114,7 +114,7 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       }
 
       // Process tweets
-      const processedTweets = (tweetData || []).map(tweet => ({
+      const processedTweets = (tweetData || []).map((tweet: any) => ({
         id: tweet.id,
         type: 'tweet',
         topic: tweet.prompt,
@@ -125,7 +125,7 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       }));
 
       // Process threads
-      const processedThreads = (threadData || []).map(thread => ({
+      const processedThreads = (threadData || []).map((thread: any) => ({
         id: thread.id,
         type: 'thread',
         topic: thread.prompt,
@@ -138,7 +138,7 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       }));
 
       // Process replies
-      const processedReplies = (replyData || []).map(reply => ({
+      const processedReplies = (replyData || []).map((reply: any) => ({
         id: reply.id,
         type: 'reply',
         topic: reply.prompt,

@@ -7,9 +7,10 @@ import { motion } from "framer-motion";
 
 interface HeroSectionProps {
   onGenerate: (topic: string, tone: string, options?: {
-    type: 'tweet' | 'thread';
+    type: 'tweet' | 'thread' | 'reply';
     threadLength?: number;
     threadStyle?: string;
+    originalTweet?: string;
   }) => void;
 }
 

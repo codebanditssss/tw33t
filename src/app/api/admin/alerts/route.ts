@@ -99,7 +99,7 @@ async function generateSystemAlerts(supabase: any): Promise<Alert[]> {
 
   // Check for unusual usage patterns
   const recentUsage = usageHistoryResult.data || [];
-  const totalCreditsLastHour = recentUsage.reduce((sum, usage) => sum + (usage.amount || 0), 0);
+  const totalCreditsLastHour = recentUsage.reduce((sum: number, usage: any) => sum + (usage.amount || 0), 0);
   
   if (totalCreditsLastHour > 1000) {
     alerts.push({
@@ -129,7 +129,7 @@ async function generateSystemAlerts(supabase: any): Promise<Alert[]> {
 
   // Check for subscription issues
   const subscriptions = subscriptionsResult.data || [];
-  const failedSubscriptions = subscriptions.filter(s => s.status === 'failed' || s.status === 'cancelled');
+  const failedSubscriptions = subscriptions.filter((s: any) => s.status === 'failed' || s.status === 'cancelled');
   
   if (failedSubscriptions.length > 0) {
     alerts.push({
@@ -145,7 +145,7 @@ async function generateSystemAlerts(supabase: any): Promise<Alert[]> {
 
   // Check for rapid user growth (potential security concern)
   const users = usersResult.data?.users || [];
-  const recentUsers = users.filter(u => 
+  const recentUsers = users.filter((u: any) => 
     new Date(u.created_at) >= dayAgo
   );
   
