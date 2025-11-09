@@ -13,8 +13,8 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Chat Input Demo",
-  description: "A demo of the chat input component",
+  title: "Tw33t - AI-Powered Tweet Generator",
+  description: "Generate professional tweets, threads, and replies with AI",
 };
 
 export default function RootLayout({
