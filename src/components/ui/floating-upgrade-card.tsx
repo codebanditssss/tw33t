@@ -58,7 +58,7 @@ export function FloatingUpgradeCard() {
             <div className="space-y-1.5 mb-3">
               <div className="flex items-center gap-1.5 text-gray-300 text-xs">
                 <div className="w-1 h-1 bg-green-400 rounded-full"></div>
-                <span>500 tweets/month</span>
+                <span>500 credits/month</span>
               </div>
               <div className="flex items-center gap-1.5 text-gray-300 text-xs">
                 <div className="w-1 h-1 bg-green-400 rounded-full"></div>
@@ -69,7 +69,7 @@ export function FloatingUpgradeCard() {
             {/* CTA Button */}
             <button
               onClick={handleUpgrade}
-              className="w-full py-1.5 rounded-lg text-xs font-medium transition-all duration-200"
+              className="w-full py-1.5 rounded-lg text-xs font-medium transition-all duration-200 cursor-pointer"
               style={{
                 background: 'linear-gradient(135deg, #FFFFFF 0%, #F0F0F0 100%)',
                 color: '#000000'

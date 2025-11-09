@@ -38,7 +38,7 @@ function ProfileDropdown() {
         {/* Profile Button */}
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="group relative px-4 py-2.5 text-sm font-medium rounded-2xl transition-all duration-300 ease-out flex items-center gap-3"
+          className="group relative px-4 py-2.5 text-sm font-medium rounded-2xl transition-all duration-300 ease-out flex items-center gap-3 cursor-pointer"
           style={{ 
             color: '#FFFFFF',
             background: 'rgba(35, 35, 37, 0.75)',
@@ -107,7 +107,7 @@ function ProfileDropdown() {
             {/* Menu Items */}
             <div className="py-2">
               <button
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-white/5"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-white/5 cursor-pointer"
                 style={{ color: 'rgba(255,255,255,0.8)' }}
                 onClick={handleHistoryClick}
               >
@@ -116,7 +116,7 @@ function ProfileDropdown() {
               </button>
               
               <button
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-white/5"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-white/5 cursor-pointer"
                 style={{ color: 'rgba(255,255,255,0.8)' }}
                 onClick={handleSettingsClick}
               >
@@ -125,7 +125,7 @@ function ProfileDropdown() {
               </button>
               
               <button
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-white/5"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-white/5 cursor-pointer"
                 style={{ color: 'rgba(255,255,255,0.8)' }}
                 onClick={handleSignOut}
               >

@@ -1,24 +1,14 @@
 import { getServerClient } from './supabase';
 
-// Plan limits
+// Plan limits (in credits)
+// Free: 10 tweets/replies (50 credits) or threads up to 50 tweets total
+// Pro: 100 tweets/replies (500 credits) or threads up to 500 tweets total
 export const PLAN_LIMITS = {
   free: 50,
   pro: 500
 } as const;
 
-// Simple in-memory cache for usage data
-interface CacheEntry {
-  data: {
-    canGenerate: boolean;
-    currentUsage: number;
-    limit: number;
-    planType: string;
-  };
-  timestamp: number;
-}
-
-const usageCache = new Map<string, CacheEntry>();
-const CACHE_DURATION = 30 * 1000; // 30 seconds
+// Note: No caching to ensure real-time usage updates
 
 // Get current month in YYYY-MM format
 export function getCurrentMonth(): string {
@@ -171,8 +161,7 @@ export async function incrementUsage(userId: string, amount: number = 1) {
       throw error;
     }
 
-    // Clear cache for this user
-    usageCache.delete(userId);
+    // Usage incremented successfully
     
     return true;
   } catch (error) {

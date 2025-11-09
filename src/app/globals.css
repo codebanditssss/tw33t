@@ -114,6 +114,11 @@ body {
   font-family: var(--font-poppins), Arial, Helvetica, sans-serif;
 }
 
+/* Ensure all buttons have cursor pointer */
+button {
+  cursor: pointer;
+}
+
 /* Line clamp utilities */
 .line-clamp-2 {
   display: -webkit-box;

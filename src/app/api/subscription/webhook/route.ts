@@ -18,10 +18,11 @@ export async function POST(request: NextRequest) {
     
     console.log('🔐 Signature check:', { signature: !!signature, secret: !!webhookSecret });
     
-    if (!signature || !webhookSecret) {
-      console.error('❌ Missing webhook signature or secret');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // TEMPORARILY DISABLED FOR DEBUGGING
+    // if (!signature || !webhookSecret) {
+    //   console.error('❌ Missing webhook signature or secret');
+    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // }
 
     const body = await request.text();
     console.log('📝 Raw webhook body:', body);

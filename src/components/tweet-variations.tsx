@@ -124,7 +124,7 @@ function TweetVariations({ tweets, selectedTweet, onSelectTweet, onGenerateMore 
 
             <button
               onClick={(e) => handleCopy(currentTweet, currentIndex)}
-              className="p-2 rounded-lg transition-all duration-300 hover:opacity-80 hover:shadow-[0_0_10px_rgba(255,255,255,0.1)]"
+              className="p-2 rounded-lg transition-all duration-300 hover:opacity-80 hover:shadow-[0_0_10px_rgba(255,255,255,0.1)] cursor-pointer"
               style={{ backgroundColor: '#161618' }}
             >
               {copiedIndex === currentIndex ? (
@@ -155,7 +155,7 @@ function TweetVariations({ tweets, selectedTweet, onSelectTweet, onGenerateMore 
 
               <button
                 onClick={onGenerateMore}
-                className="px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-300 hover:opacity-90 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:translate-y-[-1px]"
+                className="px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-300 hover:opacity-90 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:translate-y-[-1px] cursor-pointer"
                 style={{
                   background: 'linear-gradient(45deg, #3E3F41, #252628)',
                   color: '#FFFFFF',
@@ -172,7 +172,7 @@ function TweetVariations({ tweets, selectedTweet, onSelectTweet, onGenerateMore 
         <div className="flex items-center justify-between gap-4 px-4">
           <button
             onClick={handlePrevious}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 hover:opacity-90 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:translate-y-[-1px]"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 hover:opacity-90 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:translate-y-[-1px] cursor-pointer"
             style={{ 
               backgroundColor: 'rgba(39, 40, 42, 0.95)',
               backdropFilter: 'blur(8px)',
@@ -189,7 +189,7 @@ function TweetVariations({ tweets, selectedTweet, onSelectTweet, onGenerateMore 
               <button
                 key={index}
                 onClick={() => handleDotClick(index)}
-                className="w-2 h-2 rounded-full transition-all duration-500"
+                className="w-2 h-2 rounded-full transition-all duration-500 cursor-pointer"
                 style={{
                   backgroundColor: currentIndex === index ? '#FFFFFF' : '#3B3B3D',
                   transform: currentIndex === index ? 'scale(1.3)' : 'scale(1)',
@@ -203,7 +203,7 @@ function TweetVariations({ tweets, selectedTweet, onSelectTweet, onGenerateMore 
 
           <button
             onClick={handleNext}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 hover:opacity-90 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:translate-y-[-1px]"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 hover:opacity-90 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:translate-y-[-1px] cursor-pointer"
             style={{ 
               backgroundColor: 'rgba(39, 40, 42, 0.95)',
               backdropFilter: 'blur(8px)',

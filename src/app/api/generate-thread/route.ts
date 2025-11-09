@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { canUserGenerate, incrementUsage } from '@/lib/usage';
+import { canUserGenerate } from '@/lib/usage';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
       if (!usageStatus.canGenerate) {
         return NextResponse.json(
           { 
-            error: `Usage limit reached. You've used ${usageStatus.currentUsage}/${usageStatus.limit} tweets this month. Upgrade to SuperTw33t for more tweets!`,
+            error: `Usage limit reached. You've used ${usageStatus.currentUsage}/${usageStatus.limit} credits this month. Upgrade to SuperTw33t for more credits!`,
             usageStatus 
           },
           { status: 429 }

@@ -77,7 +77,7 @@ function PricingSection() {
       price: 5.99,
       popular: true,
       features: [
-        '500 tweets per month',
+        '500 credits per month',
         'All tweet styles & tones',
         'Unlimited thread generation',
         'Premium templates',
@@ -126,7 +126,7 @@ function PricingSection() {
         }}>
           <Check className="w-4 h-4 text-green-400" />
           <span className="text-sm" style={{ color: '#FFFFFF' }}>
-            Free plan included: 50 tweets per month for all users
+            Free plan included: 50 credits per month for all users
           </span>
         </div>
       </div>

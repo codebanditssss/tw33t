@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { canUserGenerate, incrementUsage } from '@/lib/usage';
+import { canUserGenerate } from '@/lib/usage';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     const usageStatus = await canUserGenerate(user.id);
     if (!usageStatus.canGenerate) {
       return NextResponse.json(
-        { error: `Usage limit reached. You've used ${usageStatus.currentUsage}/${usageStatus.limit} tweets this month. Upgrade for more!` },
+        { error: `Usage limit reached. You've used ${usageStatus.currentUsage}/${usageStatus.limit} credits this month. Upgrade for more!` },
         { status: 402 }
       );
     }
@@ -108,10 +108,7 @@ Format each reply as a complete, ready-to-post tweet.`;
         return reply.trim().replace(/^\d+\.\s*/, '');
       });
 
-    // Increment usage
-    await incrementUsage(user.id);
-
-    // Return the generated replies
+    // Return the generated replies (usage will be incremented by frontend)
     return NextResponse.json({
       success: true,
       replies

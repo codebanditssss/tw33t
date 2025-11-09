@@ -145,7 +145,7 @@ function TwitterPreview({ tweet }: TwitterPreviewProps) {
 
             {/* Tweet Actions */}
             <div className="flex justify-between mt-2">
-              <button className="group flex items-center gap-1 text-[#71767B] transition-colors duration-200 hover:text-[#1d9bf0]">
+              <button className="group flex items-center gap-1 text-[#71767B] transition-colors duration-200 hover:text-[#1d9bf0] cursor-pointer">
                 <div className="p-2 rounded-full transition-all duration-200 group-hover:bg-[#1d9bf0]/10 transform group-hover:scale-110">
                   <MessageCircle size={18} className="transition-all duration-200" />
                 </div>
@@ -153,7 +153,7 @@ function TwitterPreview({ tweet }: TwitterPreviewProps) {
               
               <button 
                 onClick={handleRetweet}
-                className={`group flex items-center gap-1 transition-colors duration-200 ${isRetweeted ? 'text-[#00BA7C]' : 'text-[#71767B] hover:text-[#00BA7C]'}`}
+                className={`group flex items-center gap-1 transition-colors duration-200 cursor-pointer ${isRetweeted ? 'text-[#00BA7C]' : 'text-[#71767B] hover:text-[#00BA7C]'}`}
               >
                 <div className={`p-2 rounded-full transition-all duration-200 transform group-hover:scale-110 ${isRetweeted ? 'bg-[#00BA7C]/10' : 'group-hover:bg-[#00BA7C]/10'}`}>
                   <Repeat2 size={18} className="transition-all duration-200" />
@@ -162,7 +162,7 @@ function TwitterPreview({ tweet }: TwitterPreviewProps) {
               
               <button 
                 onClick={handleLike}
-                className={`group flex items-center gap-1 transition-colors duration-200 ${isLiked ? 'text-[#F91880]' : 'text-[#71767B] hover:text-[#F91880]'}`}
+                className={`group flex items-center gap-1 transition-colors duration-200 cursor-pointer ${isLiked ? 'text-[#F91880]' : 'text-[#71767B] hover:text-[#F91880]'}`}
               >
                 <div className={`p-2 rounded-full transition-all duration-200 transform group-hover:scale-110 ${isLiked ? 'bg-[#F91880]/10' : 'group-hover:bg-[#F91880]/10'}`}>
                   <Heart 
@@ -172,7 +172,7 @@ function TwitterPreview({ tweet }: TwitterPreviewProps) {
                 </div>
               </button>
               
-              <button className="group flex items-center gap-1 text-[#71767B] transition-colors duration-200 hover:text-[#1d9bf0]">
+              <button className="group flex items-center gap-1 text-[#71767B] transition-colors duration-200 hover:text-[#1d9bf0] cursor-pointer">
                 <div className="p-2 rounded-full transition-all duration-200 group-hover:bg-[#1d9bf0]/10 transform group-hover:scale-110">
                   <Share size={18} className="transition-all duration-200" />
                 </div>
@@ -182,7 +182,7 @@ function TwitterPreview({ tweet }: TwitterPreviewProps) {
 
           {/* More Options */}
           <button 
-            className="p-2 rounded-full text-[#71767B] hover:bg-[#1d9bf0]/10 hover:text-[#1d9bf0] transition-all duration-200 transform hover:scale-105"
+            className="p-2 rounded-full text-[#71767B] hover:bg-[#1d9bf0]/10 hover:text-[#1d9bf0] transition-all duration-200 transform hover:scale-105 cursor-pointer"
           >
             <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
               <path d="M3 12c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2-2-.9-2-2zm9 2c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm7 0c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z" />

@@ -17,7 +17,7 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState('account');
   const [loading, setLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+
   const { user, signOut } = useAuth();
   const router = useRouter();
   const supabase = getBrowserClient();
@@ -186,49 +186,7 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     }
   };
 
-  const handleDeleteAccount = async () => {
-    const confirmed = window.confirm(
-      'Are you sure you want to delete your account? This action cannot be undone and will permanently delete all your data.'
-    );
-    
-    if (!confirmed) return;
 
-    setIsDeleting(true);
-    try {
-      if (!user) {
-        throw new Error('No user logged in');
-      }
-
-      // Delete user's tweets
-      const { error: tweetsError } = await supabase
-        .from('tweets')
-        .delete()
-        .eq('user_id', user.id);
-
-      if (tweetsError) throw tweetsError;
-
-      // Delete user's threads
-      const { error: threadsError } = await supabase
-        .from('threads')
-        .delete()
-        .eq('user_id', user.id);
-
-      if (threadsError) throw threadsError;
-
-      // Delete user account through Supabase auth
-      const { error: deleteError } = await supabase.auth.signOut();
-      if (deleteError) throw deleteError;
-
-      toast.success('Account deleted successfully');
-      router.push('/');
-      onClose();
-    } catch (error) {
-      console.error('Delete error:', error);
-      toast.error('Failed to delete account. Please try again.');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
 
   if (!isOpen) return null;
 
@@ -257,7 +215,7 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </h2>
           <button
             onClick={onClose}
-            className="p-2 rounded-full transition-colors hover:opacity-80"
+            className="p-2 rounded-full transition-colors hover:opacity-80 cursor-pointer"
             style={{ color: '#B5B5B5' }}
           >
             <X className="h-5 w-5" />
@@ -274,7 +232,7 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200"
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer"
                     style={{
                       backgroundColor: activeTab === tab.id ? '#3E3F41' : 'transparent',
                       color: activeTab === tab.id ? '#FFFFFF' : '#B5B5B5'
@@ -400,33 +358,7 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         )}
                       </Button>
                     </div>
-                    <div className="p-4 rounded-lg" style={{ backgroundColor: '#161618' }}>
-                      <h4 className="text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>
-                        Delete Account
-                      </h4>
-                      <p className="text-xs mb-3" style={{ color: '#B5B5B5' }}>
-                        Permanently delete your account and all data
-                      </p>
-                      <Button
-                        onClick={handleDeleteAccount}
-                        disabled={isDeleting}
-                        size="sm"
-                        className="text-xs flex items-center gap-2"
-                        style={{
-                          backgroundColor: '#dc2626',
-                          color: '#FFFFFF'
-                        }}
-                      >
-                        {isDeleting ? (
-                          <>
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            Deleting...
-                          </>
-                        ) : (
-                          'Delete Account'
-                        )}
-                      </Button>
-                    </div>
+
                   </div>
                 </div>
               </div>
