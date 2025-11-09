@@ -25,7 +25,7 @@ export async function isUserAdmin(userId?: string): Promise<boolean> {
             cookieStore.set(name, value, options);
           },
           remove(name: string, options: any) {
-            cookieStore.delete(name, options);
+            cookieStore.delete(name);
           },
         },
       }
@@ -60,7 +60,7 @@ export async function getCurrentUserAdmin() {
             cookieStore.set(name, value, options);
           },
           remove(name: string, options: any) {
-            cookieStore.delete(name, options);
+            cookieStore.delete(name);
           },
         },
       }

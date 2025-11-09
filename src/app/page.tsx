@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { Header } from "@/components/ui/header";
 import { HeroSection } from "@/components/hero-section";
 import { ResultsSection } from "@/components/results-section";
@@ -36,7 +36,7 @@ interface UsageStatus {
   limit: number;
 }
 
-export default function Home() {
+function HomeContent() {
   const [mode, setMode] = useState<Mode>('hero');
   const [currentType, setCurrentType] = useState<'tweet' | 'thread' | 'reply'>('tweet');
   const [currentTopic, setCurrentTopic] = useState('');
@@ -427,6 +427,21 @@ export default function Home() {
         defaultTab="signup"
       />
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#1A1A1C' }}>
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading...</p>
+        </div>
+      </div>
+    }>
+      <HomeContent />
+    </Suspense>
   );
 }
 
