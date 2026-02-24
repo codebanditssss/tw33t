@@ -10,14 +10,14 @@ const supabaseAdmin = createClient(
 export async function POST(request: NextRequest) {
   console.log('🔔 WEBHOOK RECEIVED!');
   console.log('📋 Headers:', Object.fromEntries(request.headers.entries()));
-  
+
   try {
     // Verify webhook signature (basic implementation)
     const signature = request.headers.get('x-dodo-signature');
     const webhookSecret = process.env.DODO_WEBHOOK_SECRET;
-    
+
     console.log('🔐 Signature check:', { signature: !!signature, secret: !!webhookSecret });
-    
+
     // TEMPORARILY DISABLED FOR DEBUGGING
     // if (!signature || !webhookSecret) {
     //   console.error('❌ Missing webhook signature or secret');
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.text();
     console.log('📝 Raw webhook body:', body);
-    
+
     const event = JSON.parse(body);
     console.log('🎯 Parsed event:', { type: event.type, data: event.data });
 
@@ -37,28 +37,28 @@ export async function POST(request: NextRequest) {
       case 'subscription.active':
         await handleSubscriptionActive(event.data);
         break;
-      
+
       case 'subscription.renewed':
         await handleSubscriptionRenewed(event.data);
         break;
-      
+
       case 'subscription.failed':
       case 'subscription.on_hold':
         await handleSubscriptionFailed(event.data);
         break;
-      
+
       case 'subscription.cancelled':
         await handleSubscriptionCancelled(event.data);
         break;
-      
+
       case 'payment.succeeded':
         await handlePaymentSucceeded(event.data);
         break;
-      
+
       case 'payment.failed':
         await handlePaymentFailed(event.data);
         break;
-      
+
       default:
         console.log('Unhandled webhook event:', event.type);
     }
@@ -77,28 +77,51 @@ export async function POST(request: NextRequest) {
 async function handleSubscriptionActive(data: any) {
   try {
     const { subscription_id, customer, metadata } = data;
-    const userId = metadata?.user_id;
+    const userId = metadata?.user_id || data.user_id;
 
-    if (!userId) {
-      console.error('No user_id in subscription metadata');
-      return;
-    }
+    console.log('🔄 Activating subscription:', {
+      subscription_id,
+      userId,
+      customerEmail: customer?.email
+    });
 
     // Update subscription status to active
-    const { error } = await supabaseAdmin
+    const { data: updatedData, error } = await supabaseAdmin
       .from('user_subscriptions')
       .update({
         status: 'active',
         current_period_start: new Date().toISOString(),
         current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        // If metadata was missing during creation, we can fill it now
+        ...(userId && { user_id: userId })
       })
-      .eq('dodo_subscription_id', subscription_id);
+      .eq('dodo_subscription_id', subscription_id)
+      .select();
 
     if (error) {
-      console.error('Failed to update subscription status:', error);
+      console.error('❌ Failed to update subscription status:', error);
+    } else if (!updatedData || updatedData.length === 0) {
+      console.warn('⚠️ No subscription found with ID:', subscription_id);
+
+      // Fallback: If we have a userId, try to update their most recent pending subscription
+      if (userId) {
+        console.log('🔍 Attempting fallback update for user:', userId);
+        await supabaseAdmin
+          .from('user_subscriptions')
+          .update({
+            status: 'active',
+            dodo_subscription_id: subscription_id,
+            current_period_start: new Date().toISOString(),
+            current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', userId)
+          .eq('status', 'pending')
+          .limit(1);
+      }
     } else {
-      console.log('Subscription activated for user:', userId);
+      console.log('✅ Subscription activated successfully for user:', userId || 'unknown');
     }
   } catch (error) {
     console.error('Error handling subscription.active:', error);

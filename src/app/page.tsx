@@ -62,11 +62,11 @@ function HomeContent() {
 
     if (success === 'true' && subscriptionId && status === 'active') {
       // Show success message
-      toast.success('🎉 Payment successful! Your Super plan is now active with 500 credits/month!');
-      
+      toast.success('Payment successful! Your Super plan is now active with 500 credits/month!');
+
       // Refresh usage status to reflect the new plan
       refreshUsage();
-      
+
       // Clean up URL parameters after a short delay
       setTimeout(() => {
         const url = new URL(window.location.href);
@@ -80,7 +80,7 @@ function HomeContent() {
     // Handle unauthorized error from admin redirect
     if (error === 'unauthorized') {
       toast.error('Access denied. Admin privileges required.');
-      
+
       // Clean up URL parameter
       setTimeout(() => {
         const url = new URL(window.location.href);
@@ -102,7 +102,7 @@ function HomeContent() {
     }
 
     if (!usageStatus?.canGenerate) {
-              toast.error(`Usage limit reached. You've used ${usageStatus?.currentUsage}/${usageStatus?.limit} credits this month. Upgrade for more!`);
+      toast.error(`Usage limit reached. You've used ${usageStatus?.currentUsage}/${usageStatus?.limit} credits this month. Upgrade for more!`);
       return;
     }
 
@@ -110,7 +110,7 @@ function HomeContent() {
     setCurrentTopic(topic);
     setCurrentTone(tone);
     setCurrentType(options?.type || 'tweet');
-    
+
     if (options?.type === 'reply' && options.originalTweet) {
       setOriginalTweet(options.originalTweet);
     }
@@ -122,7 +122,7 @@ function HomeContent() {
       if (options?.type === 'thread') {
         response = await fetch('/api/generate-thread', {
           method: 'POST',
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session?.access_token}`
           },
@@ -135,7 +135,7 @@ function HomeContent() {
       } else if (options?.type === 'reply') {
         response = await fetch('/api/generate-replies', {
           method: 'POST',
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session?.access_token}`
           },
@@ -148,7 +148,7 @@ function HomeContent() {
       } else {
         response = await fetch('/api/generate', {
           method: 'POST',
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session?.access_token}`
           },
@@ -186,7 +186,7 @@ function HomeContent() {
 
       // Save to history
       const tableName = `${options?.type || 'tweet'}_history`;
-      
+
       // Debug logs
       console.log('Table name:', tableName);
       console.log('Content type:', options?.type || 'tweet');
@@ -240,7 +240,7 @@ function HomeContent() {
         tone: options?.type === 'thread' ? options.threadStyle : tone,
         content: contentToSave,
         ...(options?.type === 'reply' && { original_tweet: options.originalTweet }),
-        ...(options?.type === 'thread' && { 
+        ...(options?.type === 'thread' && {
           thread_length: options.threadLength,
           thread_style: options.threadStyle
         })
@@ -325,7 +325,7 @@ function HomeContent() {
         }
 
         console.log('Usage increment successful:', data);
-        
+
         // Add a small delay to ensure database consistency before refreshing
         await new Promise(resolve => setTimeout(resolve, 500));
         await refreshUsage();
@@ -378,7 +378,7 @@ function HomeContent() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#161618' }}>
       <Header />
-      
+
       <div className="min-h-[calc(100vh-80px)] flex items-center justify-center">
         <div className="flex flex-col items-center w-full">
           {mode === 'hero' && (
@@ -386,14 +386,14 @@ function HomeContent() {
               <HeroSection onGenerate={handleGenerate} />
             </div>
           )}
-          
+
           {mode === 'loading' && (
-            <LoadingScreen 
+            <LoadingScreen
               progress={progress.percent}
               prompt={getLoadingText()}
             />
           )}
-          
+
           {mode === 'results' && (
             <>
               {currentType === 'thread' ? (
@@ -421,7 +421,7 @@ function HomeContent() {
       </div>
 
       {/* Auth Modal */}
-      <AuthModal 
+      <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         defaultTab="signup"
