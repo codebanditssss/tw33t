@@ -3,6 +3,7 @@ import { getCurrentUserAdmin } from '@/lib/admin';
 import { ReactNode } from 'react';
 import Link from 'next/link';
 import { BarChart3, Users, TrendingUp, Bell, FileText } from 'lucide-react';
+export const dynamic = 'force-dynamic';
 
 export default async function AdminLayout({
   children,
@@ -31,39 +32,39 @@ export default async function AdminLayout({
               <h1 className="text-xl font-semibold text-white">
                 TWT-LAB Admin
               </h1>
-              
+
               {/* Navigation */}
               <nav className="flex space-x-6">
-                <Link 
-                  href="/admin" 
+                <Link
+                  href="/admin"
                   className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
                 >
                   <BarChart3 className="w-4 h-4" />
                   <span>Dashboard</span>
                 </Link>
-                <Link 
-                  href="/admin/analytics" 
+                <Link
+                  href="/admin/analytics"
                   className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
                 >
                   <TrendingUp className="w-4 h-4" />
                   <span>Analytics</span>
                 </Link>
-                <Link 
-                  href="/admin/alerts" 
+                <Link
+                  href="/admin/alerts"
                   className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
                 >
                   <Bell className="w-4 h-4" />
                   <span>Alerts</span>
                 </Link>
-                <Link 
-                  href="/admin/reports" 
+                <Link
+                  href="/admin/reports"
                   className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
                 >
                   <FileText className="w-4 h-4" />
                   <span>Reports</span>
                 </Link>
-                <Link 
-                  href="/admin/users" 
+                <Link
+                  href="/admin/users"
                   className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
                 >
                   <Users className="w-4 h-4" />
