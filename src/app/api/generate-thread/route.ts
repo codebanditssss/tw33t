@@ -20,16 +20,16 @@ if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KE
 // Thread-specific prompts for different styles
 const getThreadPrompt = (topic: string, threadLength: number, threadStyle: string) => {
   const baseInstructions = `Create a Twitter thread about "${topic}" with exactly ${threadLength} tweets. Each tweet should be a standalone message without any numbering or prefixes. Separate each tweet with "---" and ensure each tweet is under 280 characters.`;
-  
+
   const styleInstructions = {
     story: `Create a compelling narrative thread that tells a complete story. Start with a hook, build tension or interest through the middle tweets, and end with a satisfying conclusion or insight. Use storytelling techniques like setting, conflict, and resolution.`,
-    
+
     educational: `Create an educational thread that teaches something step by step. Break down complex concepts into digestible, easy-to-understand tweets. Each tweet should build upon the previous one, creating a clear learning progression. Use examples and analogies where helpful.`,
-    
+
     tips: `Create a practical tips thread with actionable advice. Each tweet should contain a specific, implementable tip or piece of advice. Use clear formatting. Focus on practical value the reader can immediately apply.`,
-    
+
     personal: `Create a personal experience thread told in first-person. Share insights, lessons learned, or experiences in an authentic, relatable way. Use personal anecdotes and be vulnerable where appropriate. Make it feel like a genuine personal story.`,
-    
+
     analysis: `Create an analytical thread that provides a deep dive into the topic. Break down different aspects, provide insights, examine causes and effects, and offer thoughtful analysis. Use data, examples, and logical reasoning to support your points.`
   };
 
@@ -43,22 +43,34 @@ const parseThreadContent = (content: string, expectedLength: number): string[] =
     .split('---')
     .map((tweet: string) => tweet.trim())
     .filter((tweet: string) => tweet.length > 0);
-  
-  // If that didn't work, try splitting by newlines and filtering
+
+  // If that didn't work, try splitting by double newlines or single newlines
   if (tweets.length < expectedLength) {
+    // Try double newlines first (common for separate paragraphs/tweets)
     tweets = content
-      .split('\n')
+      .split(/\n\s*\n/)
       .map((tweet: string) => tweet.trim())
-      .filter((tweet: string) => 
-        tweet.length > 0 && 
-        !tweet.startsWith('Tweet') && 
-        !tweet.startsWith('-') &&
-        !tweet.match(/^\d+[\.)]/));
+      .filter((tweet: string) => tweet.length > 0);
+
+    // If still not enough, try single newlines
+    if (tweets.length < expectedLength) {
+      tweets = content
+        .split('\n')
+        .map((tweet: string) => tweet.trim())
+        .filter((tweet: string) => tweet.length > 0);
+    }
   }
-  
+
+  // Clean up tweets: remove numbering, "Tweet X:" prefixes, etc.
+  tweets = tweets.map((tweet: string) => {
+    return tweet
+      .replace(/^(Tweet\s*\d+\s*:?|Thread\s*\d+\s*:?|\d+[\.)]\s*)/i, '')
+      .trim();
+  }).filter(tweet => tweet.length > 0);
+
   // Ensure we have the right number of tweets and they're within length limits
   return tweets
-    .filter((tweet: string) => tweet.length <= 280)
+    .filter((tweet: string) => tweet.length <= 300) // Be a bit more lenient here, filter later
     .slice(0, expectedLength);
 };
 
@@ -118,24 +130,24 @@ export async function POST(request: NextRequest) {
     try {
       const token = authHeader.substring(7);
       const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-      
+
       if (authError || !user) {
         return NextResponse.json(
           { error: 'Invalid authentication. Please sign up or log in to generate threads.' },
           { status: 401 }
         );
       }
-      
+
       userId = user.id;
-      
+
       // Check usage limits
       const usageStatus = await canUserGenerate(userId);
-      
+
       if (!usageStatus.canGenerate) {
         return NextResponse.json(
-          { 
+          {
             error: `Usage limit reached. You've used ${usageStatus.currentUsage}/${usageStatus.limit} credits this month. Upgrade to SuperTw33t for more credits!`,
-            usageStatus 
+            usageStatus
           },
           { status: 429 }
         );
@@ -150,7 +162,7 @@ export async function POST(request: NextRequest) {
     // Generate 3 different thread variations
     const threadPromises = Array.from({ length: 3 }, async (_, index) => {
       const prompt = getThreadPrompt(topic, threadLength, threadStyle);
-      
+
       try {
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -178,8 +190,7 @@ export async function POST(request: NextRequest) {
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           throw new Error(
-            `OpenAI API error (${response.status}): ${
-              errorData.error?.message || errorData.error || response.statusText
+            `OpenAI API error (${response.status}): ${errorData.error?.message || errorData.error || response.statusText
             }`
           );
         }
@@ -193,7 +204,7 @@ export async function POST(request: NextRequest) {
 
         // Parse and validate the content
         const parsedTweets = parseThreadContent(content, threadLength);
-        
+
         if (parsedTweets.length < threadLength) {
           throw new Error(`OpenAI returned insufficient tweets: got ${parsedTweets.length}, expected ${threadLength}`);
         }
@@ -208,10 +219,10 @@ export async function POST(request: NextRequest) {
     const threads = (await Promise.all(threadPromises)).filter(Boolean) as string[][];
 
     // Validate that we have valid threads
-    const validThreads = threads.filter(thread => 
-      Array.isArray(thread) && 
-      thread.length >= Math.min(2, threadLength) && 
-      thread.every(tweet => typeof tweet === 'string' && tweet.length > 20 && tweet.length <= 280)
+    const validThreads = threads.filter(thread =>
+      Array.isArray(thread) &&
+      thread.length >= Math.min(2, Math.floor(threadLength * 0.8)) && // Be a bit more lenient on length
+      thread.every(tweet => typeof tweet === 'string' && tweet.length > 5 && tweet.length <= 280)
     );
 
     if (validThreads.length === 0) {
@@ -232,8 +243,8 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Thread generation error:', error);
     return NextResponse.json(
-      { error: 'Failed to generate thread' },
+      { error: error instanceof Error ? error.message : 'Failed to generate thread' },
       { status: 500 }
     );
   }
-} 
+}
