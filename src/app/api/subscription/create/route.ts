@@ -6,7 +6,7 @@ import { cookies } from 'next/headers';
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies();
-    
+
     // Client for user authentication
     const supabaseAuth = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,16 +24,16 @@ export async function POST(request: NextRequest) {
         },
       }
     );
-    
+
     // Service role client for database operations (bypasses RLS)
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
-    
+
     // Get current user
     const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
-    
+
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Please log in to create a subscription' },
@@ -69,12 +69,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Determine the base URL dynamically from the request headers if NEXT_PUBLIC_APP_URL is not set or is localhost
+    const host = request.headers.get('host');
+    const protocol = request.headers.get('x-forwarded-proto') || 'http';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL && !process.env.NEXT_PUBLIC_APP_URL.includes('localhost')
+      ? process.env.NEXT_PUBLIC_APP_URL
+      : `${protocol}://${host}`;
+
     // Create Dodo Payments subscription
     const subscriptionPayload = {
       billing: {
         city: 'Default City',
         country: 'US',
-        state: 'Default State', 
+        state: 'Default State',
         street: 'Default Street',
         zipcode: '12345'
       },
@@ -85,17 +92,17 @@ export async function POST(request: NextRequest) {
       product_id: process.env.DODO_PRO_PRODUCT_ID,
       quantity: 1,
       payment_link: true,
-      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/?success=true`,
+      return_url: `${baseUrl}/?success=true`,
       metadata: {
         user_id: user.id,
         plan_type: 'pro'
       }
     };
-    
+
     console.log('📦 Subscription payload:', subscriptionPayload);
     console.log('🔗 Dodo API URL:', process.env.DODO_PAYMENTS_API_URL);
     console.log('🔑 Has API key:', !!process.env.DODO_PAYMENTS_API_KEY);
-    
+
     const dodoResponse = await fetch(`${process.env.DODO_PAYMENTS_API_URL}/subscriptions`, {
       method: 'POST',
       headers: {
@@ -127,9 +134,9 @@ export async function POST(request: NextRequest) {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
-    
+
     console.log('💾 Storing subscription record:', subscriptionRecord);
-    
+
     const { error: dbError } = await supabaseAdmin
       .from('user_subscriptions')
       .upsert(subscriptionRecord);
