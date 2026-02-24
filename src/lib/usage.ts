@@ -43,12 +43,12 @@ interface UsageRecord {
 export async function getCurrentUsage(userId: string) {
   try {
     const supabase = getServerClient();
-  
+
     const { data, error } = await supabase
       .from('usage_history')
       .select()
-    .eq('user_id', userId)
-    .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
+      .eq('user_id', userId)
+      .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
       .returns<UsageRecord[]>();
 
     if (error) {
@@ -82,7 +82,9 @@ export async function getUserUsageStatus(userId: string): Promise<UsageStatus> {
         .from('user_subscriptions')
         .select('plan_type, status')
         .eq('user_id', userId)
-        .single(),
+        .order('status', { ascending: true }) // 'active' comes before 'pending'/'canceled'
+        .order('created_at', { ascending: false })
+        .limit(1),
       supabase
         .from('usage_history')
         .select()
@@ -103,11 +105,12 @@ export async function getUserUsageStatus(userId: string): Promise<UsageStatus> {
     }
 
     // Determine plan type and limit
-    const planType = planResult.data?.plan_type || 'free';
-    const isSubscriptionActive = planResult.data?.status === 'active';
+    const subscription = planResult.data && planResult.data.length > 0 ? planResult.data[0] : null;
+    const planType = subscription?.plan_type || 'free';
+    const isSubscriptionActive = subscription?.status === 'active';
     const effectivePlanType = isSubscriptionActive && planType ? planType : 'free';
     const limit = PLAN_LIMITS[effectivePlanType as keyof typeof PLAN_LIMITS];
-    
+
     // Calculate total usage from all records
     const currentUsage = (usageResult.data || []).reduce((sum, record) => sum + record.amount, 0);
 
@@ -146,7 +149,7 @@ export async function canUserGenerate(userId: string): Promise<{
 export async function incrementUsage(userId: string, amount: number = 1) {
   try {
     const supabase = getServerClient();
-    
+
     // Insert a new usage record with required fields
     const { error } = await supabase
       .from('usage_history')
@@ -162,7 +165,7 @@ export async function incrementUsage(userId: string, amount: number = 1) {
     }
 
     // Usage incremented successfully
-    
+
     return true;
   } catch (error) {
     console.error('Error in incrementUsage:', error);
