@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { canUserGenerate } from '@/lib/usage';
+import OpenAI from 'openai';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 if (!OPENAI_API_KEY) {
   console.warn('OPENAI_API_KEY is not set. Thread generation will not work.');
 }
+
+const openai = new OpenAI({
+  apiKey: OPENAI_API_KEY,
+});
 
 // Initialize Supabase only if keys are available
 let supabase: any = null;
@@ -19,21 +24,17 @@ if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KE
 
 // Thread-specific prompts for different styles
 const getThreadPrompt = (topic: string, threadLength: number, threadStyle: string) => {
-  const baseInstructions = `Create a Twitter thread about "${topic}" with exactly ${threadLength} tweets. Each tweet should be a standalone message without any numbering or prefixes. Separate each tweet with "---" and ensure each tweet is under 280 characters.`;
+  const baseInstructions = `Create a high-quality Twitter thread about "${topic}" with exactly ${threadLength} tweets. Each tweet should be a standalone message. Separate each tweet with exactly "---" and ensure each tweet is STRICTLY under 280 characters.`;
 
   const styleInstructions = {
     story: `Create a compelling narrative thread that tells a complete story. Start with a hook, build tension or interest through the middle tweets, and end with a satisfying conclusion or insight. Use storytelling techniques like setting, conflict, and resolution.`,
-
     educational: `Create an educational thread that teaches something step by step. Break down complex concepts into digestible, easy-to-understand tweets. Each tweet should build upon the previous one, creating a clear learning progression. Use examples and analogies where helpful.`,
-
     tips: `Create a practical tips thread with actionable advice. Each tweet should contain a specific, implementable tip or piece of advice. Use clear formatting. Focus on practical value the reader can immediately apply.`,
-
     personal: `Create a personal experience thread told in first-person. Share insights, lessons learned, or experiences in an authentic, relatable way. Use personal anecdotes and be vulnerable where appropriate. Make it feel like a genuine personal story.`,
-
     analysis: `Create an analytical thread that provides a deep dive into the topic. Break down different aspects, provide insights, examine causes and effects, and offer thoughtful analysis. Use data, examples, and logical reasoning to support your points.`
   };
 
-  return `${baseInstructions}\n\n${styleInstructions[threadStyle as keyof typeof styleInstructions]}\n\nFormat each tweet as a complete, ready-to-post tweet WITHOUT any numbering, prefixes, or labels. Just the pure content. Separate tweets with "---".`;
+  return `${baseInstructions}\n\nStyle: ${styleInstructions[threadStyle as keyof typeof styleInstructions]}\n\nFormat: Return ONLY the tweets separated by "---". Do NOT include numbering, prefixes like "Tweet 1:", or any other commentary. Just the pure content of the tweets separated by "---".`;
 };
 
 // Simple function to split and clean thread content
@@ -44,34 +45,26 @@ const parseThreadContent = (content: string, expectedLength: number): string[] =
     .map((tweet: string) => tweet.trim())
     .filter((tweet: string) => tweet.length > 0);
 
-  // If that didn't work, try splitting by double newlines or single newlines
+  // If that didn't work well, try splitting by double line breaks
   if (tweets.length < expectedLength) {
-    // Try double newlines first (common for separate paragraphs/tweets)
-    tweets = content
+    const backupTweets = content
       .split(/\n\s*\n/)
       .map((tweet: string) => tweet.trim())
-      .filter((tweet: string) => tweet.length > 0);
-
-    // If still not enough, try single newlines
-    if (tweets.length < expectedLength) {
-      tweets = content
-        .split('\n')
-        .map((tweet: string) => tweet.trim())
-        .filter((tweet: string) => tweet.length > 0);
+      .filter((tweet: string) => tweet.length > 5);
+    
+    if (backupTweets.length >= expectedLength) {
+      tweets = backupTweets;
     }
   }
 
   // Clean up tweets: remove numbering, "Tweet X:" prefixes, etc.
   tweets = tweets.map((tweet: string) => {
     return tweet
-      .replace(/^(Tweet\s*\d+\s*:?|Thread\s*\d+\s*:?|\d+[\.)]\s*)/i, '')
+      .replace(/^(\s*Tweet\s*\d+\s*:?|\s*Thread\s*\d+\s*:?|\s*\d+[\.)]\s*|\s*-\s*)/i, '')
       .trim();
-  }).filter(tweet => tweet.length > 0);
+  }).filter(tweet => tweet.length > 5);
 
-  // Ensure we have the right number of tweets and they're within length limits
-  return tweets
-    .filter((tweet: string) => tweet.length <= 300) // Be a bit more lenient here, filter later
-    .slice(0, expectedLength);
+  return tweets.slice(0, expectedLength);
 };
 
 export async function POST(request: NextRequest) {
@@ -101,15 +94,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate thread style
-    const validStyles = ['story', 'educational', 'tips', 'personal', 'analysis'];
-    if (!validStyles.includes(threadStyle)) {
-      return NextResponse.json(
-        { error: 'Invalid thread style' },
-        { status: 400 }
-      );
-    }
-
     // Authentication is required
     if (!supabase) {
       return NextResponse.json(
@@ -121,7 +105,7 @@ export async function POST(request: NextRequest) {
     const authHeader = request.headers.get('authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json(
-        { error: 'Authentication required. Please sign up or log in to generate threads.' },
+        { error: 'Authentication required.' },
         { status: 401 }
       );
     }
@@ -132,112 +116,78 @@ export async function POST(request: NextRequest) {
       const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
       if (authError || !user) {
-        return NextResponse.json(
-          { error: 'Invalid authentication. Please sign up or log in to generate threads.' },
-          { status: 401 }
-        );
+        return NextResponse.json({ error: 'Session expired. Please log in again.' }, { status: 401 });
       }
 
       userId = user.id;
 
       // Check usage limits
       const usageStatus = await canUserGenerate(userId);
-
       if (!usageStatus.canGenerate) {
         return NextResponse.json(
           {
-            error: `Usage limit reached. You've used ${usageStatus.currentUsage}/${usageStatus.limit} credits this month. Upgrade to SuperTw33t for more credits!`,
+            error: `Usage limit reached. You've used ${usageStatus.currentUsage}/${usageStatus.limit} credits.`,
             usageStatus
           },
           { status: 429 }
         );
       }
     } catch (authError) {
-      return NextResponse.json(
-        { error: 'Authentication failed. Please sign up or log in to generate threads.' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Authentication failed.' }, { status: 401 });
     }
 
-    // Generate 3 different thread variations
-    const threadPromises = Array.from({ length: 3 }, async (_, index) => {
+    // Generate threads
+    const threadPromises = Array.from({ length: 2 }, async (_, index) => {
       const prompt = getThreadPrompt(topic, threadLength, threadStyle);
 
       try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${OPENAI_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'gpt-3.5-turbo',
-            messages: [
-              {
-                role: 'system',
-                content: 'You are an expert at creating engaging Twitter threads that are properly formatted and follow Twitter\'s character limits.'
-              },
-              {
-                role: 'user',
-                content: prompt
-              }
-            ],
-            temperature: 0.7 + (index * 0.1), // Slight variation for different threads
-            max_tokens: 2000,
-          }),
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert Twitter ghostwriter who creates engaging, viral threads. You strictly follow character limits (280 characters per tweet) and formatting instructions.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0.7 + (index * 0.1),
+          max_tokens: 2500,
         });
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(
-            `OpenAI API error (${response.status}): ${errorData.error?.message || errorData.error || response.statusText
-            }`
-          );
-        }
+        const content = completion.choices[0]?.message?.content;
+        if (!content) return null;
 
-        const data = await response.json();
-        const content = data.choices[0]?.message?.content;
-
-        if (!content) {
-          throw new Error('No content received from OpenAI API');
-        }
-
-        // Parse and validate the content
         const parsedTweets = parseThreadContent(content, threadLength);
-
-        if (parsedTweets.length < threadLength) {
-          throw new Error(`OpenAI returned insufficient tweets: got ${parsedTweets.length}, expected ${threadLength}`);
+        
+        // Basic validation for this variation
+        if (parsedTweets.length < Math.min(2, Math.floor(threadLength * 0.7))) {
+          return null;
         }
 
         return parsedTweets;
       } catch (error) {
-        console.error(`Error in thread variation ${index + 1}:`, error);
-        return null; // Return null for failed variations
+        console.error(`Error in variation ${index}:`, error);
+        return null;
       }
     });
 
-    const threads = (await Promise.all(threadPromises)).filter(Boolean) as string[][];
-
-    // Validate that we have valid threads
-    const validThreads = threads.filter(thread =>
-      Array.isArray(thread) &&
-      thread.length >= Math.min(2, Math.floor(threadLength * 0.8)) && // Be a bit more lenient on length
-      thread.every(tweet => typeof tweet === 'string' && tweet.length > 5 && tweet.length <= 280)
+    const results = await Promise.all(threadPromises);
+    const validThreads = results.filter((t): t is string[] => 
+      t !== null && 
+      t.length > 0 && 
+      t.every(tweet => tweet.length <= 285) // Be slightly lenient in parsing, but ideally prompt keeps it under 280
     );
 
     if (validThreads.length === 0) {
-      throw new Error('Failed to generate valid threads. Please try again with different parameters.');
+      throw new Error('Failed to generate valid threads. The prompt might be too complex or character limits were exceeded. Please try a simpler topic or shorter thread.');
     }
 
-    // Return the generated threads without saving to history or incrementing usage
     return NextResponse.json({
       threads: validThreads,
-      metadata: {
-        topic,
-        threadLength,
-        threadStyle,
-        generatedAt: new Date().toISOString()
-      }
+      metadata: { topic, threadLength, threadStyle }
     });
 
   } catch (error) {

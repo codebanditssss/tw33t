@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     const usageStatus = await canUserGenerate(user.id);
     if (!usageStatus.canGenerate) {
       return NextResponse.json(
-        { error: `Usage limit reached. You've used ${usageStatus.currentUsage}/${usageStatus.limit} credits this month. Upgrade for more!` },
+        { error: `Usage limit reached. You've used ${usageStatus.currentUsage}/${usageStatus.limit} credits. Upgrade for more!` },
         { status: 402 }
       );
     }
@@ -69,21 +69,21 @@ export async function POST(request: NextRequest) {
 The replies should:
 1. Be in a ${tone} tone
 2. Focus on the topic: ${topic}
-3. Follow Twitter's character limit
+3. Follow Twitter's character limit (under 280 characters)
 4. Be engaging and encourage further discussion
 5. Be unique from each other
 6. Use appropriate emojis where relevant
 7. Be authentic and human-like
 8. Add value to the conversation
 
-Format each reply as a complete, ready-to-post tweet.`;
+Format: Return ONLY the replies, one per line. Do NOT include numbering, prefixes like "Reply 1:", or any other commentary.`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
+      model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
-          content: "You are an expert Twitter user who crafts engaging, authentic replies that add value to conversations while maintaining the specified tone. Your replies are concise, impactful, and encourage further discussion."
+          content: "You are an expert Twitter user who crafts engaging, authentic replies. You follow character limits strictly and provide only the requested content without extra text."
         },
         {
           role: "user",
@@ -102,23 +102,29 @@ Format each reply as a complete, ready-to-post tweet.`;
     // Extract replies from the content
     const replies = content
       .split('\n')
-      .filter(line => line.trim() && !line.startsWith('Reply') && !line.startsWith('-'))
+      .map(line => line.trim())
+      .filter(line => line.length > 5)
       .map(reply => {
-        // Remove numbering (e.g., "1.", "2.", etc.) from the beginning of replies
-        return reply.trim().replace(/^\d+\.\s*/, '');
-      });
+        // Remove common numbering patterns
+        return reply.replace(/^(\s*Reply\s*\d+\s*:?|\s*\d+[\.)]\s*|\s*-\s*)/i, '').trim();
+      })
+      .filter(reply => reply.length > 5 && reply.length <= 300); // Lenient on upper limit here
 
-    // Return the generated replies (usage will be incremented by frontend)
+    if (replies.length === 0) {
+      throw new Error('Failed to generate valid replies');
+    }
+
     return NextResponse.json({
       success: true,
-      replies
+      replies: replies.slice(0, 5)
     });
     
   } catch (error) {
     console.error('Reply generation error:', error);
     return NextResponse.json(
-      { error: 'Failed to generate replies. Please try again.' },
+      { error: error instanceof Error ? error.message : 'Failed to generate replies. Please try again.' },
       { status: 500 }
     );
   }
-} 
+}
+ 
